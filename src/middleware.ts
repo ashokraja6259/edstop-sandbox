@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // 🔥 Always use getSession() in middleware (NOT getUser)
+  // 🔐 Get session (recommended in middleware)
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
   const user = session?.user ?? null
   const pathname = request.nextUrl.pathname
 
-  // Protect only these routes
+  // 🔒 Define protected route prefixes
   const protectedRoutes = [
     '/dashboard',
     '/food',
@@ -38,28 +38,63 @@ export async function middleware(request: NextRequest) {
     '/ai',
     '/rider',
     '/admin',
+    '/vendor',
   ]
 
   const isProtected = protectedRoutes.some(route =>
     pathname.startsWith(route)
   )
 
-  // If not logged in and accessing protected route → redirect to login
+  // 🚫 If not logged in and accessing protected route
   if (!user && isProtected) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // If logged in and trying to access login → redirect to dashboard
+  let role: string | null = null
+
+  // 🔍 Fetch role only if logged in
+  if (user) {
+    const { data: profile, error } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!error) {
+      role = profile?.role ?? null
+    }
+  }
+
+  // 🛑 Admin route protection
+  if (pathname.startsWith('/admin')) {
+    if (role !== 'admin') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+  }
+
+  // 🛑 Vendor route protection
+  if (pathname.startsWith('/vendor')) {
+    if (role !== 'vendor') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+  }
+
+  // 🛑 Rider route protection (if applicable)
+  if (pathname.startsWith('/rider')) {
+    if (role !== 'rider') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+  }
+
+  // 🔄 Prevent logged-in users from accessing login page
   if (user && pathname === '/login') {
-    return NextResponse.redirect(
-      new URL('/student-dashboard', request.url)
-    )
+    return NextResponse.redirect(new URL('/student-dashboard', request.url))
   }
 
   return response
 }
 
-// 🔥 IMPORTANT: Only match protected routes (DO NOT match everything)
+// 🎯 Only run middleware on protected routes
 export const config = {
   matcher: [
     '/dashboard/:path*',
@@ -69,5 +104,6 @@ export const config = {
     '/ai/:path*',
     '/rider/:path*',
     '/admin/:path*',
+    '/vendor/:path*',
   ],
 }

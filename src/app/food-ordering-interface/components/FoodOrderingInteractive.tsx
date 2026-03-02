@@ -445,32 +445,6 @@ const FoodOrderingInteractive = () => {
     // Clear any previous order confirmation
     clearOrderConfirmation();
 
-    // Persist order to Supabase
-    if (user?.id) {
-      const { createClient } = require('@/lib/supabase/client');
-      const supabase = createClient();
-      const restaurant = selectedRestaurant
-        ? mockRestaurants.find((r: Restaurant) => r.id === selectedRestaurant)
-        : null;
-      supabase.from('orders').insert({
-        user_id: user.id,
-        order_number: orderId,
-        order_type: 'food',
-        status: 'pending',
-        total_amount: total,
-        delivery_fee: deliveryFee,
-        discount_amount: discount,
-        promo_code: promoCode ?? null,
-        promo_discount: discount,
-        final_amount: Math.max(0, finalTotal),
-        payment_method: paymentMethod,
-        restaurant_name: restaurant?.name ?? null,
-        items: cart.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, variantName: item.variantName })),
-        notes: null,
-      }).then(({ error }: { error: Error | null }) => {
-        if (error) console.error('Failed to save food order:', error.message);
-      });
-    }
   };
 
   if (!isHydrated) {
