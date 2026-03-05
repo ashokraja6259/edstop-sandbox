@@ -1,3 +1,5 @@
+// FILE: src/app/rider-dashboard/components/EarningsTracker.tsx
+
 'use client';
 
 import Icon from '@/components/ui/AppIcon';

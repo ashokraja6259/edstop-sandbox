@@ -1,17 +1,16 @@
+// FILE: src/app/admin/restaurant-settlements/page.tsx
+
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function RestaurantSettlementsPage() {
-
   const [settlements, setSettlements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = createClient();
-
       const { data } = await supabase
         .from('restaurant_settlements')
         .select(`

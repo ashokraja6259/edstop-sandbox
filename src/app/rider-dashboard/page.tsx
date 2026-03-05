@@ -1,3 +1,5 @@
+// FILE: src/app/rider-dashboard/page.tsx
+
 import type { Metadata } from 'next';
 import RiderDashboardInteractive from './components/RiderDashboardInteractive';
 

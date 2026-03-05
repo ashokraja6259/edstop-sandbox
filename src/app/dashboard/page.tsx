@@ -1,13 +1,22 @@
+// FILE: src/app/dashboard/page.tsx
+
 'use client';
 
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function DashboardPage() {
-  const { user, signOut, loading } = useAuth();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // If no user after hydration, redirect
+  useEffect(() => {
+    if (user === null) {
+      router.replace('/login');
+    }
+  }, [user, router]);
 
   const handleLogout = async () => {
     try {
@@ -19,14 +28,6 @@ export default function DashboardPage() {
       setLoggingOut(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -40,7 +41,7 @@ export default function DashboardPage() {
             <button
               onClick={handleLogout}
               disabled={loggingOut}
-              className="bg-red-600 text-white rounded-lg px-6 py-2.5 font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="bg-red-600 text-white rounded-lg px-6 py-2.5 font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
             >
               {loggingOut ? 'Signing Out...' : 'Sign Out'}
             </button>
@@ -49,45 +50,10 @@ export default function DashboardPage() {
           {user && (
             <div className="space-y-6">
               <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-indigo-900 mb-3">Account Information</h2>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-indigo-700">Email:</span>
-                    <span className="text-sm text-indigo-900">{user.email}</span>
-                  </div>
-                  {user.user_metadata?.full_name && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-indigo-700">Name:</span>
-                      <span className="text-sm text-indigo-900">{user.user_metadata.full_name}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-indigo-700">User ID:</span>
-                    <span className="text-sm text-indigo-900 font-mono">{user.id.slice(0, 8)}...</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Quick Actions</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button className="bg-white border border-gray-300 rounded-lg p-4 text-left hover:border-indigo-500 hover:shadow-md transition-all">
-                    <h3 className="font-medium text-gray-900 mb-1">Order Food</h3>
-                    <p className="text-sm text-gray-600">Browse restaurants and menus</p>
-                  </button>
-                  <button className="bg-white border border-gray-300 rounded-lg p-4 text-left hover:border-indigo-500 hover:shadow-md transition-all">
-                    <h3 className="font-medium text-gray-900 mb-1">Shop Store</h3>
-                    <p className="text-sm text-gray-600">Get essentials delivered</p>
-                  </button>
-                  <button className="bg-white border border-gray-300 rounded-lg p-4 text-left hover:border-indigo-500 hover:shadow-md transition-all">
-                    <h3 className="font-medium text-gray-900 mb-1">My Wallet</h3>
-                    <p className="text-sm text-gray-600">Manage EdCoins</p>
-                  </button>
-                  <button className="bg-white border border-gray-300 rounded-lg p-4 text-left hover:border-indigo-500 hover:shadow-md transition-all">
-                    <h3 className="font-medium text-gray-900 mb-1">AI Companion</h3>
-                    <p className="text-sm text-gray-600">Get study help</p>
-                  </button>
-                </div>
+                <h2 className="text-lg font-semibold text-indigo-900 mb-3">
+                  Account Information
+                </h2>
+                <p className="text-sm text-indigo-900">{user.email}</p>
               </div>
             </div>
           )}

@@ -1,3 +1,5 @@
+// FILE: src/app/promotions-analytics-dashboard/page.tsx
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -399,8 +401,10 @@ export default function PromotionsAnalyticsDashboard() {
                   <YAxis tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 10 }} tickLine={false} axisLine={false} />
                   <Tooltip
                     contentStyle={{ background: 'rgba(15,10,40,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: '#fff', fontSize: 12 }}
-                    formatter={(val: number) => [`₹${val.toLocaleString('en-IN')}`, 'Discount']}
-                  />
+                    formatter={(value) => {
+  const safeValue = typeof value === 'number' ? value : 0;
+  return [`₹${safeValue.toLocaleString('en-IN')}`, 'Discount'];
+}}                 />
                   <Line type="monotone" dataKey="discount" stroke="#ec4899" strokeWidth={2} dot={false} name="Discount" />
                 </LineChart>
               </ResponsiveContainer>

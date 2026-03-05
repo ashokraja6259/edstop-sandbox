@@ -1,9 +1,11 @@
+// FILE: src/app/admin-promo-code-management/page.tsx
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabaseClient';
 import Icon from '@/components/ui/AppIcon';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Cell, Legend } from 'recharts';
 

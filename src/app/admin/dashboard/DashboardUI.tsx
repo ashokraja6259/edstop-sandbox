@@ -1,3 +1,5 @@
+// FILE: src/app/admin/dashboard/DashboardUI.tsx
+
 'use client';
 
 import {

@@ -1,3 +1,5 @@
+// FILE: src/app/student-dashboard/components/ServicesGrid.tsx
+
 'use client';
 
 import Link from 'next/link';

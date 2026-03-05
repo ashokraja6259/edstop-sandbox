@@ -1,3 +1,5 @@
+// FILE: src/app/ai-companion-interface/components/SuggestedPrompts.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';

@@ -1,3 +1,5 @@
+// FILE: src/components/common/WalletIndicator.tsx
+
 'use client';
 
 import { useState } from 'react';

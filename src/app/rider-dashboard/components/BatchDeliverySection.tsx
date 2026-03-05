@@ -1,3 +1,5 @@
+// FILE: src/app/rider-dashboard/components/BatchDeliverySection.tsx
+
 'use client';
 
 import { useState } from 'react';

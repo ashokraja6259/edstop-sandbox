@@ -1,3 +1,5 @@
+// FILE: src/app/account-deletion/page.tsx
+
 'use client';
 
 import { useState } from 'react';

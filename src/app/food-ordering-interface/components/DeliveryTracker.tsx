@@ -1,9 +1,11 @@
+// FILE: src/app/food-ordering-interface/components/DeliveryTracker.tsx
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import type { DeliveryUpdate } from '@/hooks/useDeliveryTracking';
-import { DELIVERY_STATUS_CONFIG, STEPS } from '@/hooks/useDeliveryTracking';
+import { DELIVERY_STATUS_CONFIG, DARK_STORE_STEPS } from '@/hooks/useDeliveryTracking';
 
 interface DeliveryTrackerProps {
   delivery: DeliveryUpdate;
@@ -129,11 +131,11 @@ const DeliveryTracker = ({ delivery, onDismiss, className = '' }: DeliveryTracke
           )}
         </div>
 
-        {/* Progress steps (not shown for cancelled) */}
+        {/* Progress DARK_STORE_STEPS (not shown for cancelled) */}
         {!isCancelled && (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-1">
-              {STEPS.map((step, idx) => {
+              {DARK_STORE_STEPS.map((step, idx) => {
                 const stepConfig = DELIVERY_STATUS_CONFIG[step];
                 const stepNum = stepConfig?.step ?? 0;
                 const isDone = currentStep > stepNum;

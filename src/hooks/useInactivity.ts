@@ -1,3 +1,5 @@
+// FILE: src/hooks/useInactivity.ts
+
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';

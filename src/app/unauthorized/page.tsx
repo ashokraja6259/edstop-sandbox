@@ -1,3 +1,5 @@
+// FILE: src/app/unauthorized/page.tsx
+
 'use client';
 
 import React from 'react';

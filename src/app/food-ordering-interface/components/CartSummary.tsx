@@ -40,213 +40,270 @@ const CartSummary = ({
   minimumOrderMet,
   minimumOrder,
 }: CartSummaryProps) => {
+
   const [quantityErrors, setQuantityErrors] = useState<Record<string, string>>({});
-  const [checkoutError, setCheckoutError] = useState<string>('');
+  const [checkoutError, setCheckoutError] = useState('');
 
   const handleQuantityDecrease = (item: CartItem) => {
+
     if (!onUpdateQuantity) return;
+
     if (item.quantity <= 1) {
-      setQuantityErrors(prev => ({ ...prev, [item.id]: 'Minimum 1 unit. Use 🗑️ to remove.' }));
-      setTimeout(() => setQuantityErrors(prev => { const n = { ...prev }; delete n[item.id]; return n; }), 2500);
+      setQuantityErrors(prev => ({
+        ...prev,
+        [item.id]: 'Minimum 1 unit. Use delete to remove.'
+      }));
+
+      setTimeout(() => {
+        setQuantityErrors(prev => {
+          const copy = { ...prev };
+          delete copy[item.id];
+          return copy;
+        });
+      }, 2500);
+
       return;
     }
-    setQuantityErrors(prev => { const n = { ...prev }; delete n[item.id]; return n; });
+
     onUpdateQuantity(item.id, item.quantity - 1);
   };
 
   const handleQuantityIncrease = (item: CartItem) => {
+
     if (!onUpdateQuantity) return;
+
     if (item.quantity >= MAX_QUANTITY) {
-      setQuantityErrors(prev => ({ ...prev, [item.id]: `Max ${MAX_QUANTITY} units per item.` }));
-      setTimeout(() => setQuantityErrors(prev => { const n = { ...prev }; delete n[item.id]; return n; }), 2500);
+
+      setQuantityErrors(prev => ({
+        ...prev,
+        [item.id]: `Max ${MAX_QUANTITY} units allowed`
+      }));
+
+      setTimeout(() => {
+        setQuantityErrors(prev => {
+          const copy = { ...prev };
+          delete copy[item.id];
+          return copy;
+        });
+      }, 2500);
+
       return;
     }
-    setQuantityErrors(prev => { const n = { ...prev }; delete n[item.id]; return n; });
+
     onUpdateQuantity(item.id, item.quantity + 1);
   };
 
   const handleCheckout = () => {
+
     if (!minimumOrderMet) {
-      setCheckoutError(`Add ₹${(minimumOrder - subtotal).toFixed(2)} more to meet the ₹${minimumOrder} minimum order.`);
+
+      setCheckoutError(
+        `Add ₹${(minimumOrder - subtotal).toFixed(2)} more to reach ₹${minimumOrder} minimum order`
+      );
+
       setTimeout(() => setCheckoutError(''), 3000);
+
       return;
     }
-    setCheckoutError('');
+
     onCheckout();
+
   };
 
+  /* ================= EMPTY CART ================= */
+
   if (items.length === 0) {
+
     return (
-      <div className="p-6 glass-neon rounded-xl text-center">
-        <div className="w-16 h-16 rounded-full glass flex items-center justify-center mx-auto mb-4 animate-float">
-          <Icon name="ShoppingCartIcon" size={32} className="text-muted-foreground" />
+      <div className="p-6 bg-slate-900 border border-slate-700 rounded-xl text-center">
+
+        <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-4">
+          <Icon name="ShoppingCartIcon" size={28} className="text-slate-400" />
         </div>
-        <p className="font-heading font-semibold text-foreground">Your cart is empty</p>
-        <p className="font-caption text-xs text-text-secondary mt-2">
-          Add items to get started
+
+        <p className="text-white font-semibold">
+          Your cart is empty
         </p>
+
+        <p className="text-sm text-slate-400 mt-1">
+          Add items to start ordering
+        </p>
+
       </div>
     );
+
   }
 
+  /* ================= CART ================= */
+
   return (
-    <div className="glass-neon rounded-xl overflow-hidden">
-      <div className="p-4 border-b border-primary/20 bg-gradient-to-r from-purple-900/30 to-indigo-900/30">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-heading font-bold text-lg text-gradient-purple">
-            🛒 Your Cart
+    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-lg">
+
+      {/* HEADER */}
+
+      <div className="p-4 border-b border-slate-700 bg-slate-800">
+
+        <div className="flex items-center justify-between">
+
+          <h3 className="text-white font-bold text-lg">
+            Your Cart
           </h3>
-          <span className="font-caption text-sm text-text-secondary px-2 py-0.5 glass rounded-lg">
-            {items.length} {items.length === 1 ? 'item' : 'items'}
+
+          <span className="text-sm text-slate-400">
+            {items.length} item{items.length > 1 ? 's' : ''}
           </span>
+
         </div>
+
       </div>
 
-      <div className="p-4 max-h-[300px] overflow-y-auto space-y-3 scrollbar-hide">
-        {items.map((item, index) => (
+      {/* ITEMS */}
+
+      <div className="p-4 max-h-[300px] overflow-y-auto space-y-4">
+
+        {items.map(item => (
+
           <div
             key={item.id}
-            className={`flex items-start justify-between gap-3 pb-3 border-b border-primary/15 last:border-0 animate-slide-up stagger-${Math.min(index + 1, 6)}`}
+            className="flex items-start justify-between gap-3 border-b border-slate-700 pb-3 last:border-none"
           >
-            <div className="flex-1 min-w-0">
-              <h4 className="font-heading font-semibold text-sm text-foreground mb-1">
+
+            <div className="flex-1">
+
+              <h4 className="text-white text-sm font-semibold">
                 {item.name}
               </h4>
+
               {item.variantName && (
-                <p className="font-caption text-xs text-text-secondary mb-1">
+                <p className="text-xs text-slate-400">
                   {item.variantName}
                 </p>
               )}
-              <div className="flex items-center gap-2">
-                <span className="font-data text-sm text-primary font-bold">₹{item.price}</span>
-                <span className="text-text-secondary text-xs">×</span>
-                {onUpdateQuantity ? (
-                  <div className="flex items-center gap-1.5">
+
+              <div className="flex items-center gap-2 mt-1">
+
+                <span className="text-purple-400 font-semibold text-sm">
+                  ₹{item.price}
+                </span>
+
+                {onUpdateQuantity && (
+
+                  <div className="flex items-center gap-2 ml-3">
+
                     <button
                       onClick={() => handleQuantityDecrease(item)}
-                      className={`flex items-center justify-center w-6 h-6 glass rounded-lg transition-all duration-200 press-scale focus-ring ${
-                        item.quantity <= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/20'
-                      }`}
-                      aria-label={`Decrease quantity of ${item.name}`}
+                      className="w-6 h-6 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded"
                     >
-                      <Icon name="MinusIcon" size={12} className="text-foreground" />
+                      <Icon name="MinusIcon" size={12} />
                     </button>
-                    <span className="font-data text-sm font-bold text-foreground min-w-[1.5rem] text-center">
+
+                    <span className="text-white text-sm font-semibold">
                       {item.quantity}
                     </span>
+
                     <button
                       onClick={() => handleQuantityIncrease(item)}
-                      className={`flex items-center justify-center w-6 h-6 glass rounded-lg transition-all duration-200 press-scale focus-ring ${
-                        item.quantity >= MAX_QUANTITY ? 'opacity-50 cursor-not-allowed' : 'hover:bg-primary/20'
-                      }`}
-                      aria-label={`Increase quantity of ${item.name}`}
+                      className="w-6 h-6 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded"
                     >
-                      <Icon name="PlusIcon" size={12} className="text-foreground" />
+                      <Icon name="PlusIcon" size={12} />
                     </button>
+
                   </div>
-                ) : (
-                  <span className="font-data text-sm font-bold text-foreground">{item.quantity}</span>
+
                 )}
+
               </div>
-              {/* Inline quantity error */}
+
               {quantityErrors[item.id] && (
-                <div className="flex items-center gap-1 mt-1 animate-slide-up">
-                  <Icon name="ExclamationCircleIcon" size={11} className="text-destructive flex-shrink-0" />
-                  <p className="font-caption text-xs text-destructive leading-tight">
-                    {quantityErrors[item.id]}
-                  </p>
-                </div>
+                <p className="text-xs text-red-400 mt-1">
+                  {quantityErrors[item.id]}
+                </p>
               )}
+
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <span className="font-data text-sm font-bold text-gradient-purple">
+
+              <span className="text-white font-semibold">
                 ₹{(item.price * item.quantity).toFixed(2)}
               </span>
+
               <button
                 onClick={() => onRemoveItem(item.id)}
-                className="text-destructive hover:text-destructive/80 transition-all duration-200 press-scale w-6 h-6 flex items-center justify-center rounded-lg hover:bg-destructive/10"
+                className="text-red-400 hover:text-red-300"
               >
                 <Icon name="TrashIcon" size={14} />
               </button>
+
             </div>
+
           </div>
+
         ))}
+
       </div>
 
-      <div className="p-4 border-t border-primary/20 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="font-caption text-sm text-text-secondary">Subtotal</span>
-          <span className="font-data text-sm font-semibold text-foreground">₹{subtotal.toFixed(2)}</span>
+      {/* BILL */}
+
+      <div className="p-4 border-t border-slate-700 space-y-2 text-sm">
+
+        <div className="flex justify-between text-slate-400">
+          <span>Subtotal</span>
+          <span>₹{subtotal.toFixed(2)}</span>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="font-caption text-sm text-text-secondary">Delivery Fee</span>
-          <span className="font-data text-sm font-semibold">
-            {deliveryFee === 0 ? (
-              <span className="text-success">🎉 FREE</span>
-            ) : (
-              `₹${deliveryFee.toFixed(2)}`
-            )}
-          </span>
+        <div className="flex justify-between text-slate-400">
+          <span>Delivery Fee</span>
+          <span>{deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}</span>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="font-caption text-sm text-text-secondary">Convenience Fee</span>
-          <span className="font-data text-sm font-semibold text-foreground">₹{convenienceFee.toFixed(2)}</span>
+        <div className="flex justify-between text-slate-400">
+          <span>Convenience Fee</span>
+          <span>₹{convenienceFee}</span>
         </div>
 
         {cashback > 0 && (
-          <div className="flex items-center justify-between p-2 bg-success/10 border border-success/30 rounded-xl">
-            <div className="flex items-center gap-2">
-              <Icon name="SparklesIcon" size={14} className="text-success animate-spin-slow" />
-              <span className="font-caption text-xs text-success font-bold">EdCoins Cashback</span>
-            </div>
-            <span className="font-data text-sm font-bold text-success">+₹{cashback.toFixed(2)}</span>
+
+          <div className="flex justify-between text-green-400">
+            <span>Cashback</span>
+            <span>+₹{cashback}</span>
           </div>
+
         )}
 
-        <div className="pt-3 border-t border-primary/20">
-          <div className="flex items-center justify-between mb-4">
-            <span className="font-heading font-bold text-base text-foreground">Total</span>
-            <span className="font-data text-xl font-bold text-gradient-purple">₹{total.toFixed(2)}</span>
-          </div>
-
-          {!minimumOrderMet && (
-            <div className="mb-3 p-3 bg-warning/10 border border-warning/30 rounded-xl">
-              <div className="flex items-start gap-2">
-                <Icon name="ExclamationTriangleIcon" size={14} className="text-warning flex-shrink-0 mt-0.5" />
-                <p className="font-caption text-xs text-warning">
-                  Add ₹{(minimumOrder - subtotal).toFixed(2)} more to meet minimum order of ₹{minimumOrder}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Checkout inline error */}
-          {checkoutError && (
-            <div className="mb-3 flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-xl animate-slide-up">
-              <Icon name="ExclamationCircleIcon" size={14} className="text-destructive flex-shrink-0 mt-0.5" />
-              <p className="font-caption text-xs text-destructive leading-relaxed">
-                {checkoutError}
-              </p>
-            </div>
-          )}
-
-          <button
-            onClick={handleCheckout}
-            className={`
-              w-full py-3 rounded-xl font-heading font-bold text-sm btn-glow
-              transition-all duration-300
-              bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 press-scale focus-ring
-            `}
-          >
-            🚀 Proceed to Checkout
-          </button>
+        <div className="flex justify-between text-white font-bold pt-2 border-t border-slate-700">
+          <span>Total</span>
+          <span>₹{total.toFixed(2)}</span>
         </div>
+
+        {!minimumOrderMet && (
+
+          <p className="text-xs text-yellow-400 mt-2">
+            Add ₹{(minimumOrder - subtotal).toFixed(2)} more to reach minimum order ₹{minimumOrder}
+          </p>
+
+        )}
+
+        {checkoutError && (
+
+          <p className="text-xs text-red-400">
+            {checkoutError}
+          </p>
+
+        )}
+
+        <button
+          onClick={handleCheckout}
+          className="w-full mt-3 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold hover:opacity-90"
+        >
+          Proceed to Checkout
+        </button>
+
       </div>
+
     </div>
   );
+
 };
 
 export default CartSummary;

@@ -1,3 +1,5 @@
+// FILE: src/app/student-dashboard/components/OffersSection.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';

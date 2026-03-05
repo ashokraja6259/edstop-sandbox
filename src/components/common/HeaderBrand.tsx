@@ -1,3 +1,5 @@
+// FILE: src/components/common/HeaderBrand.tsx
+
 'use client';
 
 import Link from 'next/link';

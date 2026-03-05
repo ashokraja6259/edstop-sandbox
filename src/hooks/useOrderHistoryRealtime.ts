@@ -1,11 +1,22 @@
+// FILE: src/hooks/useOrderHistoryRealtime.ts
+
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabaseClient'; // ✅ singleton
 import { useToast } from '@/contexts/ToastContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-export type OrderStatus = 'delivered' | 'cancelled' | 'refunded' | 'pending' | 'preparing' | 'out-for-delivery';
+/* ───────────────────────── TYPES ───────────────────────── */
+
+export type OrderStatus =
+  | 'delivered'
+  | 'cancelled'
+  | 'refunded'
+  | 'pending'
+  | 'preparing'
+  | 'out-for-delivery';
+
 export type OrderType = 'food' | 'dark-store';
 export type PaymentMethod = 'EdCoins' | 'Razorpay' | 'UPI' | 'COD';
 
@@ -32,13 +43,6 @@ export interface LiveOrder {
   paymentMethod: PaymentMethod;
   status: OrderStatus;
   deliveryAddress: string;
-  cashbackEarned?: number;
-  walletRedeemed?: number;
-  riderName?: string;
-  riderPhone?: string;
-  rating?: number;
-  cancellationReason?: string;
-  refundAmount?: number;
   estimatedDeliveryTime?: string;
 }
 
@@ -54,17 +58,15 @@ interface DBOrder {
   payment_method?: string;
   delivery_address?: string;
   estimated_delivery_time?: string;
-  actual_delivery_time?: string;
   restaurant_name?: string;
   items?: OrderItem[];
-  notes?: string;
   created_at: string;
-  updated_at: string;
-  rider_id?: string;
   user_id?: string;
 }
 
-const DB_STATUS_MAP: Record<string, OrderStatus> = {
+/* ───────────────────────── HELPERS ───────────────────────── */
+
+const STATUS_MAP: Record<string, OrderStatus> = {
   pending: 'pending',
   confirmed: 'pending',
   preparing: 'preparing',
@@ -81,52 +83,60 @@ const PAYMENT_MAP: Record<string, PaymentMethod> = {
   cod: 'COD',
 };
 
-function mapDBOrderToLive(row: DBOrder): LiveOrder {
+function mapOrder(row: DBOrder): LiveOrder {
   const createdAt = new Date(row.created_at);
-  const dateStr = `${String(createdAt.getDate()).padStart(2, '0')}/${String(createdAt.getMonth() + 1).padStart(2, '0')}/${createdAt.getFullYear()}`;
-  const timeStr = createdAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-  const rawStatus = row.status?.toLowerCase() || 'pending';
-  const mappedStatus: OrderStatus = DB_STATUS_MAP[rawStatus] || 'pending';
+  const date = `${String(createdAt.getDate()).padStart(2, '0')}/${String(
+    createdAt.getMonth() + 1
+  ).padStart(2, '0')}/${createdAt.getFullYear()}`;
 
-  const rawPayment = (row.payment_method || '').toLowerCase();
-  const paymentMethod: PaymentMethod = PAYMENT_MAP[rawPayment] || 'UPI';
+  const time = createdAt.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
-  const orderType: OrderType = row.order_type === 'store' ? 'dark-store' : 'food';
+  const status = STATUS_MAP[row.status?.toLowerCase()] || 'pending';
+  const payment =
+    PAYMENT_MAP[row.payment_method?.toLowerCase() || ''] || 'UPI';
 
-  const items: OrderItem[] = Array.isArray(row.items)
-    ? row.items.map((i: any) => ({
-        id: i.id || String(Math.random()),
-        name: i.name || 'Item',
-        quantity: i.quantity || 1,
-        price: i.price || 0,
-        available: i.available !== false,
-      }))
-    : [];
+  const items =
+    Array.isArray(row.items) &&
+    row.items.map(i => ({
+      id: i.id,
+      name: i.name,
+      quantity: i.quantity,
+      price: i.price,
+    }));
 
-  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0) || Number(row.total_amount) || 0;
-  const deliveryFee = Number(row.delivery_fee) || 0;
-  const discount = Number(row.discount_amount) || 0;
-  const total = Number(row.final_amount) || subtotal;
+  const subtotal =
+    items?.reduce((s, i) => s + i.price * i.quantity, 0) ||
+    Number(row.total_amount) ||
+    0;
 
   return {
     id: row.id,
     orderNumber: row.order_number,
-    type: orderType,
-    restaurantOrStore: row.restaurant_name || (orderType === 'dark-store' ? 'EdStop Dark Store' : 'Restaurant'),
-    date: dateStr,
-    time: timeStr,
-    items,
+    type: row.order_type === 'store' ? 'dark-store' : 'food',
+    restaurantOrStore:
+      row.restaurant_name ||
+      (row.order_type === 'store'
+        ? 'EdStop Dark Store'
+        : 'Restaurant'),
+    date,
+    time,
+    items: items || [],
     subtotal,
-    deliveryFee,
-    discount,
-    total,
-    paymentMethod,
-    status: mappedStatus,
+    deliveryFee: Number(row.delivery_fee) || 0,
+    discount: Number(row.discount_amount) || 0,
+    total: Number(row.final_amount) || subtotal,
+    paymentMethod: payment,
+    status,
     deliveryAddress: row.delivery_address || '',
     estimatedDeliveryTime: row.estimated_delivery_time,
   };
 }
+
+/* ───────────────────────── HOOK ───────────────────────── */
 
 export interface OrderHistoryRealtimeResult {
   liveOrders: LiveOrder[];
@@ -140,132 +150,104 @@ export function useOrderHistoryRealtime(): OrderHistoryRealtimeResult {
   const [isLive, setIsLive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLiveData, setHasLiveData] = useState(false);
+
   const channelRef = useRef<RealtimeChannel | null>(null);
   const toast = useToast();
 
+  /* ───────── FETCH INITIAL ORDERS ───────── */
+
   const fetchOrders = useCallback(async () => {
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      
-    
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        setLiveOrders(data.map(mapDBOrderToLive));
-        setHasLiveData(true);
-      }
-    } catch (err) {
-      console.error('[OrderHistoryRealtime] fetch error:', err);
-    } finally {
+    if (!user) {
       setIsLoading(false);
+      return;
     }
+
+    const { data } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (data) {
+      setLiveOrders(data.map(mapOrder));
+      setHasLiveData(true);
+    }
+
+    setIsLoading(false);
   }, []);
 
+  /* ───────── SETUP REALTIME ───────── */
+
   const setupChannel = useCallback(async () => {
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      // Clean up existing channel
-      if (channelRef.current) {
-        await supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+    if (!user) return;
 
-      const channel = supabase
-        .channel('order-history-realtime')
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'orders',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            const updated = payload.new as DBOrder;
-            const mappedOrder = mapDBOrderToLive(updated);
-
-            setLiveOrders(prev => {
-              const exists = prev.find(o => o.id === mappedOrder.id);
-              if (!exists) return prev;
-
-              const oldOrder = exists;
-              const newStatus = mappedOrder.status;
-
-              // Status change notifications
-              if (oldOrder.status !== newStatus) {
-                const statusMessages: Record<OrderStatus, { title: string; msg: string }> = {
-                  pending: { title: 'Order Received', msg: `Order ${mappedOrder.orderNumber} is pending confirmation.` },
-                  preparing: { title: 'Order Preparing', msg: `${mappedOrder.restaurantOrStore} is preparing your order ${mappedOrder.orderNumber}.` },
-                  'out-for-delivery': { title: '🛵 Out for Delivery!', msg: `Your order ${mappedOrder.orderNumber} is on the way!` },
-                  delivered: { title: '✅ Order Delivered!', msg: `Order ${mappedOrder.orderNumber} has been delivered. Enjoy!` },
-                  cancelled: { title: '❌ Order Cancelled', msg: `Order ${mappedOrder.orderNumber} was cancelled.` },
-                  refunded: { title: '↩️ Refund Processed', msg: `Refund for order ${mappedOrder.orderNumber} has been processed.` },
-                };
-
-                const notif = statusMessages[newStatus];
-                if (notif) {
-                  if (newStatus === 'delivered') {
-                    toast.success(notif.title, notif.msg);
-                  } else if (newStatus === 'cancelled') {
-                    toast.error(notif.title, notif.msg);
-                  } else if (newStatus === 'refunded') {
-                    toast.warning(notif.title, notif.msg);
-                  } else if (newStatus === 'out-for-delivery') {
-                    toast.success(notif.title, notif.msg);
-                  } else {
-                    toast.info(notif.title, notif.msg);
-                  }
-                }
-              }
-
-              return prev.map(o => o.id === mappedOrder.id ? mappedOrder : o);
-            });
-
-            setHasLiveData(true);
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'orders',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            const newOrder = mapDBOrderToLive(payload.new as DBOrder);
-            setLiveOrders(prev => [newOrder, ...prev]);
-            setHasLiveData(true);
-            toast.success('New Order Placed', `Order ${newOrder.orderNumber} has been placed successfully!`);
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            setIsLive(true);
-          } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-            setIsLive(false);
-          }
-        });
-
-      channelRef.current = channel;
-    } catch (err) {
-      console.error('[OrderHistoryRealtime] channel error:', err);
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
     }
+
+    const channel = supabase
+      .channel(`order-history-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: `user_id=eq.${user.id}`,
+        },
+        payload => {
+          const updated = mapOrder(payload.new as DBOrder);
+
+          if (payload.eventType === 'INSERT') {
+            setLiveOrders(prev => [updated, ...prev]);
+            toast.success(
+              'New Order Placed',
+              `Order ${updated.orderNumber} placed`
+            );
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            setLiveOrders(prev =>
+              prev.map(o =>
+                o.id === updated.id ? updated : o
+              )
+            );
+
+            if (updated.status === 'delivered') {
+              toast.success(
+                'Order Delivered',
+                `Order ${updated.orderNumber} delivered`
+              );
+            }
+
+            if (updated.status === 'cancelled') {
+              toast.error(
+                'Order Cancelled',
+                `Order ${updated.orderNumber} cancelled`
+              );
+            }
+          }
+
+          setHasLiveData(true);
+        }
+      )
+      .subscribe(status => {
+        setIsLive(status === 'SUBSCRIBED');
+      });
+
+    channelRef.current = channel;
   }, [toast]);
+
+  /* ───────── INIT ───────── */
 
   useEffect(() => {
     fetchOrders();
@@ -273,10 +255,7 @@ export function useOrderHistoryRealtime(): OrderHistoryRealtimeResult {
 
     return () => {
       if (channelRef.current) {
-        try {
-          const supabase = createClient();
-          supabase.removeChannel(channelRef.current);
-        } catch (_) {}
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
       setIsLive(false);

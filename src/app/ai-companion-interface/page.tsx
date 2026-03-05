@@ -1,3 +1,5 @@
+// FILE: src/app/ai-companion-interface/page.tsx
+
 import type { Metadata } from 'next';
 import AICompanionInteractive from './components/AICompanionInteractive';
 

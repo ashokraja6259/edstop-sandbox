@@ -1,3 +1,5 @@
+// FILE: src/app/ai-companion-interface/components/ChatHistory.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';

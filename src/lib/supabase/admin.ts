@@ -1,3 +1,5 @@
+// FILE: src/lib/supabase/admin.ts
+
 import { createClient } from '@supabase/supabase-js';
 
 export function createAdminClient() {

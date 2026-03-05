@@ -1,9 +1,15 @@
+// FILE: src/hooks/useRiderRealtime.ts
+
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabaseClient'; // ✅ singleton
 import { useToast } from '@/contexts/ToastContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+
+/* ───────────────────────────────────────────────────────────── */
+/* TYPES */
+/* ───────────────────────────────────────────────────────────── */
 
 export interface RiderOrder {
   orderId: string;
@@ -59,11 +65,9 @@ export interface RiderRealtimeData {
   isLoading: boolean;
 }
 
-// DB order row shape
 interface DBOrder {
   id: string;
   order_number: string;
-  order_type: string;
   status: string;
   total_amount: number;
   final_amount: number;
@@ -72,18 +76,28 @@ interface DBOrder {
   delivery_instructions?: string;
   estimated_delivery_time?: string;
   restaurant_name?: string;
-  items?: Array<{ id?: string; name: string; quantity: number; price: number }>;
+  items?: any[];
   notes?: string;
   created_at: string;
   rider_id?: string;
-  user_id?: string;
 }
 
-const BASE_PAY_PER_DELIVERY = 50; // ₹50 per delivery
+/* ───────────────────────────────────────────────────────────── */
+/* CONSTANTS */
+/* ───────────────────────────────────────────────────────────── */
+
+const BASE_PAY_PER_DELIVERY = 50;
 const BONUS_THRESHOLD = 15;
 const BONUS_AMOUNT = 200;
 
-const mapDBStatusToRider = (dbStatus: string): RiderOrder['status'] => {
+/* ───────────────────────────────────────────────────────────── */
+/* HELPERS */
+/* ───────────────────────────────────────────────────────────── */
+
+const isActiveStatus = (status: string) =>
+  ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'].includes(status);
+
+const mapStatus = (status: string): RiderOrder['status'] => {
   const map: Record<string, RiderOrder['status']> = {
     pending: 'pending-pickup',
     confirmed: 'pending-pickup',
@@ -92,32 +106,28 @@ const mapDBStatusToRider = (dbStatus: string): RiderOrder['status'] => {
     out_for_delivery: 'in-transit',
     delivered: 'delivered',
   };
-  return map[dbStatus] ?? 'pending-pickup';
+  return map[status] ?? 'pending-pickup';
 };
 
-const isActiveStatus = (status: string) =>
-  ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'].includes(status);
-
-const formatETA = (estimatedTime?: string): string => {
+const formatETA = (estimatedTime?: string) => {
   if (!estimatedTime) return '~20 mins';
-  try {
-    const mins = Math.max(0, Math.round((new Date(estimatedTime).getTime() - Date.now()) / 60000));
-    return mins <= 0 ? 'Now' : `${mins} mins`;
-  } catch {
-    return '~20 mins';
-  }
+  const mins = Math.max(
+    0,
+    Math.round((new Date(estimatedTime).getTime() - Date.now()) / 60000)
+  );
+  return mins <= 0 ? 'Now' : `${mins} mins`;
 };
 
-const dbOrderToRiderOrder = (o: DBOrder): RiderOrder => ({
+const dbToRider = (o: DBOrder): RiderOrder => ({
   orderId: o.id,
   orderNumber: o.order_number,
-  customerName: (o.notes && JSON.parse(o.notes || '{}')?.customer_name) || 'Customer',
-  customerPhone: (o.notes && JSON.parse(o.notes || '{}')?.customer_phone) || '',
+  customerName: 'Customer',
+  customerPhone: '',
   deliveryAddress: o.delivery_address || 'Campus Address',
-  landmark: (o.notes && JSON.parse(o.notes || '{}')?.landmark) || '',
+  landmark: '',
   items: Array.isArray(o.items)
-    ? o.items.map((item, idx) => ({
-        id: item.id || String(idx),
+    ? o.items.map((item: any, i: number) => ({
+        id: item.id || String(i),
         name: item.name,
         quantity: item.quantity,
         price: item.price,
@@ -125,66 +135,26 @@ const dbOrderToRiderOrder = (o: DBOrder): RiderOrder => ({
     : [],
   totalAmount: Number(o.final_amount || o.total_amount),
   paymentMethod: o.payment_method === 'COD' ? 'COD' : 'ONLINE',
-  codAmount: o.payment_method === 'COD' ? Number(o.final_amount || o.total_amount) : undefined,
-  status: mapDBStatusToRider(o.status),
+  codAmount:
+    o.payment_method === 'COD'
+      ? Number(o.final_amount || o.total_amount)
+      : undefined,
+  status: mapStatus(o.status),
   estimatedTime: formatETA(o.estimated_delivery_time),
   specialInstructions: o.delivery_instructions,
   restaurantName: o.restaurant_name || 'Restaurant',
   restaurantAddress: 'IIT KGP Campus',
-  pickupTime: o.estimated_delivery_time
-    ? new Date(o.estimated_delivery_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-    : undefined,
 });
 
-const computeStats = (completed: RiderOrder[]): RiderStats => {
-  const count = completed.length;
-  const base = count * BASE_PAY_PER_DELIVERY;
-  const bonus = count >= BONUS_THRESHOLD ? BONUS_AMOUNT : 0;
-  return {
-    dailyDeliveries: count,
-    completedOrders: count,
-    totalEarnings: base + bonus,
-    baseIncentive: base,
-    bonusIncentive: bonus,
-    targetDeliveries: BONUS_THRESHOLD,
-  };
-};
+/* ───────────────────────────────────────────────────────────── */
+/* HOOK */
+/* ───────────────────────────────────────────────────────────── */
 
-// Group active orders into batch zones by delivery address prefix
-const groupIntoBatches = (orders: RiderOrder[]): RiderBatchGroup[] => {
-  const zoneMap: Record<string, RiderOrder[]> = {};
-  orders.forEach((o) => {
-    // Extract hall/zone name from address (first meaningful segment)
-    const match = o.deliveryAddress.match(/([A-Za-z]+\s+Hall|[A-Za-z]+\s+Hostel|[A-Za-z]+\s+Block)/i);
-    const zone = match ? match[0] : 'Campus Zone';
-    if (!zoneMap[zone]) zoneMap[zone] = [];
-    zoneMap[zone].push(o);
-  });
-
-  // Only create batches for zones with 2+ orders
-  return Object.entries(zoneMap)
-    .filter(([, orders]) => orders.length >= 2)
-    .map(([zoneName, zoneOrders], idx) => ({
-      zoneId: `zone-${idx + 1}`,
-      zoneName: `${zoneName} Zone`,
-      totalDistance: `${(Math.random() * 1.5 + 0.5).toFixed(1)} km`,
-      estimatedDuration: `${Math.round(zoneOrders.length * 5 + 10)} mins`,
-      orders: zoneOrders.map((o, seq) => ({
-        orderId: o.orderId,
-        orderNumber: o.orderNumber,
-        customerName: o.customerName,
-        deliveryAddress: o.deliveryAddress,
-        landmark: o.landmark,
-        estimatedTime: o.estimatedTime,
-        sequence: seq + 1,
-      })),
-    }));
-};
-
-export function useRiderRealtime(riderId: string | undefined): RiderRealtimeData {
+export function useRiderRealtime(
+  riderId: string | undefined
+): RiderRealtimeData {
   const toast = useToast();
   const channelsRef = useRef<RealtimeChannel[]>([]);
-  const prevStatusRef = useRef<Record<string, string>>({});
 
   const [activeOrders, setActiveOrders] = useState<RiderOrder[]>([]);
   const [completedOrders, setCompletedOrders] = useState<RiderOrder[]>([]);
@@ -199,200 +169,110 @@ export function useRiderRealtime(riderId: string | undefined): RiderRealtimeData
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // ── Recompute batches whenever active orders change ───────────────────────
-  const refreshBatches = useCallback((orders: RiderOrder[]) => {
-    setBatchDeliveries(groupIntoBatches(orders));
-  }, []);
+  /* ───────── INITIAL FETCH ───────── */
 
-  // ── Initial data fetch ────────────────────────────────────────────────────
   useEffect(() => {
     if (!riderId) {
       setIsLoading(false);
       return;
     }
 
-    let cancelled = false;
-
-    const fetchInitialData = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
-      try {
-        let supabase = createClient();
 
-        // Fetch today's active orders assigned to this rider
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
+      const { data: activeData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('rider_id', riderId)
+        .in('status', [
+          'pending',
+          'confirmed',
+          'preparing',
+          'ready',
+          'out_for_delivery',
+        ]);
 
-        const { data: activeData } = await supabase
-          .from('orders')
-          .select('id, order_number, order_type, status, total_amount, final_amount, payment_method, delivery_address, delivery_instructions, estimated_delivery_time, restaurant_name, items, notes, created_at, rider_id, user_id')
-          .eq('rider_id', riderId)
-          .in('status', ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'])
-          .order('created_at', { ascending: false });
+      const { data: completedData } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('rider_id', riderId)
+        .eq('status', 'delivered');
 
-        // Fetch today's completed orders for earnings
-        const { data: completedData } = await supabase
-          .from('orders')
-          .select('id, order_number, order_type, status, total_amount, final_amount, payment_method, delivery_address, delivery_instructions, estimated_delivery_time, restaurant_name, items, notes, created_at, rider_id, user_id')
-          .eq('rider_id', riderId)
-          .eq('status', 'delivered')
-          .gte('created_at', todayStart.toISOString())
-          .order('created_at', { ascending: false });
+      const mappedActive = (activeData || []).map(dbToRider);
+      const mappedCompleted = (completedData || []).map(dbToRider);
 
-        if (cancelled) return;
+      setActiveOrders(mappedActive);
+      setCompletedOrders(mappedCompleted);
 
-        const mappedActive: RiderOrder[] = (activeData || []).map(dbOrderToRiderOrder);
-        const mappedCompleted: RiderOrder[] = (completedData || []).map(dbOrderToRiderOrder);
+      const completedCount = mappedCompleted.length;
+      const base = completedCount * BASE_PAY_PER_DELIVERY;
+      const bonus =
+        completedCount >= BONUS_THRESHOLD ? BONUS_AMOUNT : 0;
 
-        setActiveOrders(mappedActive);
-        setCompletedOrders(mappedCompleted);
-        setRiderStats(computeStats(mappedCompleted));
-        refreshBatches(mappedActive);
+      setRiderStats({
+        dailyDeliveries: completedCount,
+        completedOrders: completedCount,
+        totalEarnings: base + bonus,
+        baseIncentive: base,
+        bonusIncentive: bonus,
+        targetDeliveries: BONUS_THRESHOLD,
+      });
 
-        // Track statuses for change detection
-        (activeData || []).forEach((o) => { prevStatusRef.current[o.id] = o.status; });
-        (completedData || []).forEach((o) => { prevStatusRef.current[o.id] = o.status; });
-      } catch {
-        // silently fall back to mock data in parent
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
+      setIsLoading(false);
     };
 
-    fetchInitialData();
-    return () => { cancelled = true; };
-  }, [riderId, refreshBatches]);
+    fetchData();
+  }, [riderId]);
 
-  const cleanup = useCallback(() => {
-    channelsRef.current.forEach((ch) => {
-      try {
-        createClient().removeChannel(ch);
-      } catch {
-        // ignore
-      }
-    });
-    channelsRef.current = [];
-  }, []);
+  /* ───────── REALTIME ───────── */
 
-  // ── Real-time subscriptions ───────────────────────────────────────────────
   useEffect(() => {
     if (!riderId) return;
 
-    let supabase: ReturnType<typeof createClient>;
-    try {
-      supabase = createClient();
-    } catch {
-      return;
-    }
-
-    // ── Channel 1: New order assignments (INSERT where rider_id = riderId) ──
-    const assignmentChannel = supabase
-      .channel(`rider:assignments:${riderId}`)
+    const channel = supabase
+      .channel(`rider-orders-${riderId}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'orders',
           filter: `rider_id=eq.${riderId}`,
         },
         (payload) => {
           const order = payload.new as DBOrder;
-          if (!isActiveStatus(order.status)) return;
 
-          const mapped = dbOrderToRiderOrder(order);
-          prevStatusRef.current[order.id] = order.status;
+          if (payload.eventType === 'INSERT' && isActiveStatus(order.status)) {
+            setActiveOrders(prev => [dbToRider(order), ...prev]);
+            toast.success('🚴 New Order Assigned');
+          }
 
-          setActiveOrders((prev) => {
-            // Avoid duplicates
-            if (prev.find((o) => o.orderId === order.id)) return prev;
-            let updated = [mapped, ...prev];
-            refreshBatches(updated);
-            return updated;
-          });
-
-          toast.success(
-            '🚴 New Order Assigned!',
-            `Order #${order.order_number} — ${order.delivery_address || 'Campus'}`
-          );
-        }
-      )
-      .subscribe();
-
-    // ── Channel 2: Order status updates (UPDATE where rider_id = riderId) ───
-    const statusChannel = supabase
-      .channel(`rider:status:${riderId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `rider_id=eq.${riderId}`,
-        },
-        (payload) => {
-          const order = payload.new as DBOrder;
-          const prevStatus = prevStatusRef.current[order.id];
-
-          if (prevStatus === order.status) return;
-          prevStatusRef.current[order.id] = order.status;
-
-          const mapped = dbOrderToRiderOrder(order);
-
-          if (order.status === 'delivered') {
-            // Move from active → completed
-            setActiveOrders((prev) => {
-              let updated = prev.filter((o) => o.orderId !== order.id);
-              refreshBatches(updated);
-              return updated;
-            });
-            setCompletedOrders((prev) => {
-              let updated = [mapped, ...prev.filter((o) => o.orderId !== order.id)];
-              setRiderStats(computeStats(updated));
-              return updated;
-            });
-            toast.success(
-              '✅ Delivery Confirmed!',
-              `Order #${order.order_number} marked as delivered. Earnings updated!`
-            );
-          } else if (isActiveStatus(order.status)) {
-            // Update status within active orders
-            setActiveOrders((prev) => {
-              const exists = prev.find((o) => o.orderId === order.id);
-              let updated: RiderOrder[];
-              if (exists) {
-                updated = prev.map((o) => (o.orderId === order.id ? mapped : o));
-              } else {
-                updated = [mapped, ...prev];
-              }
-              refreshBatches(updated);
-              return updated;
-            });
-
-            const statusMessages: Record<string, string> = {
-              confirmed: '✅ Order confirmed by restaurant',
-              preparing: '👨‍🍳 Restaurant is preparing the order',
-              ready: '📦 Order ready for pickup!',
-              out_for_delivery: '🛵 Order is out for delivery',
-            };
-            if (statusMessages[order.status]) {
-              toast.info('Order Update', `#${order.order_number}: ${statusMessages[order.status]}`);
+          if (payload.eventType === 'UPDATE') {
+            if (order.status === 'delivered') {
+              setActiveOrders(prev =>
+                prev.filter(o => o.orderId !== order.id)
+              );
+              setCompletedOrders(prev => [dbToRider(order), ...prev]);
+              toast.success('✅ Order Delivered');
             }
-          } else if (order.status === 'cancelled') {
-            setActiveOrders((prev) => {
-              let updated = prev.filter((o) => o.orderId !== order.id);
-              refreshBatches(updated);
-              return updated;
-            });
-            toast.error('❌ Order Cancelled', `Order #${order.order_number} has been cancelled.`);
           }
         }
       )
       .subscribe();
 
-    channelsRef.current = [assignmentChannel, statusChannel];
+    channelsRef.current.push(channel);
 
-    return cleanup;
-  }, [riderId, toast, cleanup, refreshBatches]);
+    return () => {
+      channelsRef.current.forEach(ch => supabase.removeChannel(ch));
+      channelsRef.current = [];
+    };
+  }, [riderId, toast]);
 
-  return { activeOrders, completedOrders, batchDeliveries, riderStats, isLoading };
+  return {
+    activeOrders,
+    completedOrders,
+    batchDeliveries,
+    riderStats,
+    isLoading,
+  };
 }
