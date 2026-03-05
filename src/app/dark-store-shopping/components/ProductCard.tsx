@@ -1,3 +1,5 @@
+// FILE: src/app/dark-store-shopping/components/ProductCard.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';

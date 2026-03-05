@@ -1,3 +1,5 @@
+// FILE: src/app/admin/dashboard/page.tsx
+
 import { Suspense } from 'react';
 import DashboardShell from './DashboardShell';
 

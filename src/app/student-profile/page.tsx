@@ -1,3 +1,5 @@
+// FILE: src/app/student-profile/page.tsx
+
 'use client';
 
 import { useState } from 'react';

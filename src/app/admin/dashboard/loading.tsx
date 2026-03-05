@@ -1,3 +1,5 @@
+// FILE: src/app/admin/dashboard/loading.tsx
+
 export default function Loading() {
   return (
     <div className="min-h-screen bg-gray-50 p-8 space-y-6 animate-pulse">

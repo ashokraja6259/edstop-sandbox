@@ -1,3 +1,6 @@
+// FILE: src/app/login/page.tsx
+
+
 'use client';
 
 import React from 'react';
@@ -56,8 +59,9 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
+ <h1 className="text-red-500 text-3xl">LOGIN PAGE LOADED</h1>
   return (
+   
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl">
         <div className="text-center">

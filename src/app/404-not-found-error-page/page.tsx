@@ -1,10 +1,12 @@
+// FILE: src/app/404-not-found-error-page/page.tsx
+
 'use client';
 
 import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabaseClient';
 
 export default function NotFoundErrorPage() {
   const { user } = useAuth();

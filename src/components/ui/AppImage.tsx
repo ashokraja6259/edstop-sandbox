@@ -1,3 +1,5 @@
+// FILE: src/components/ui/AppImage.tsx
+
 'use client';
 
 import React, { useState } from 'react';

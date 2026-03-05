@@ -1,3 +1,5 @@
+// FILE: src/app/dark-store-shopping/page.tsx
+
 import type { Metadata } from 'next';
 import HeaderBrand from '@/components/common/HeaderBrand';
 import DarkStoreInteractive from './components/DarkStoreInteractive';

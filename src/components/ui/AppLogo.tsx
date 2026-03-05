@@ -1,3 +1,5 @@
+// FILE: src/components/ui/AppLogo.tsx
+
 'use client';
 
 import React from 'react';

@@ -1,10 +1,12 @@
+// FILE: src/app/403-unauthorized-error-page/page.tsx
+
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabaseClient';
 
 type RestrictionType = 'insufficient_permissions' | 'suspended' | 'unauthenticated';
 
@@ -27,7 +29,7 @@ export default function UnauthorizedErrorPage() {
     // Log 403 error event to Supabase
     const logErrorEvent = async () => {
       try {
-        const supabase = createClient();
+       
         await supabase.from('error_logs').insert({
           error_type: '403',
           route: typeof window !== 'undefined' ? window.location.href : pathname || '/unknown',

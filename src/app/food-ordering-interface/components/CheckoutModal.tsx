@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { useState, useMemo } from 'react';
+import { createClient } from '@/lib/supabaseClient';
 
 interface CartItem {
   id: string;
@@ -15,7 +15,6 @@ interface CartItem {
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
-  total: number;
   walletBalance: number;
   maxWalletRedemption: number;
   cartItems: CartItem[];
@@ -25,43 +24,51 @@ interface CheckoutModalProps {
 const CheckoutModal = ({
   isOpen,
   onClose,
-  total,
   walletBalance,
   maxWalletRedemption,
   cartItems,
   restaurantId,
 }: CheckoutModalProps) => {
-  const supabase = createClient();
+
+  const supabase = useMemo(() => createClient(), []);
 
   const [paymentMethod, setPaymentMethod] =
     useState<'razorpay' | 'cod'>('razorpay');
+
   const [walletAmount, setWalletAmount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Debug log
-  useEffect(() => {
-    console.log('CheckoutModal cart received:', cartItems);
-  }, [cartItems]);
-
   if (!isOpen) return null;
 
-  const subtotal = Array.isArray(cartItems)
-    ? cartItems.reduce(
-        (sum, item) =>
-          sum + Number(item.price) * Number(item.quantity),
-        0
-      )
-    : 0;
+  /* ================= CALCULATIONS ================= */
 
-  const remainingAmount = Math.max(0, subtotal - walletAmount);
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + Number(item.price) * Number(item.quantity),
+    0
+  );
+
+  const safeWalletAmount = Math.min(
+    Math.max(0, walletAmount),
+    walletBalance,
+    maxWalletRedemption,
+    subtotal
+  );
+
+  const remainingAmount = Math.max(0, subtotal - safeWalletAmount);
+
+  /* ================= ORDER CREATION ================= */
 
   const handleConfirm = async () => {
+
+    if (isProcessing) return;
+
     try {
+
       setIsProcessing(true);
       setErrorMessage('');
 
-      if (!Array.isArray(cartItems) || cartItems.length === 0) {
+      if (!cartItems.length) {
         throw new Error('Your cart is empty.');
       }
 
@@ -69,71 +76,113 @@ const CheckoutModal = ({
         throw new Error('Restaurant not selected.');
       }
 
+      /* Prevent mock IDs */
+
+      if (restaurantId.startsWith('r')) {
+        throw new Error('Invalid restaurant ID.');
+      }
+
+      /* ================= AUTH ================= */
+
       const {
         data: { user },
+        error: authError
       } = await supabase.auth.getUser();
 
-      if (!user) {
-        throw new Error('User not logged in.');
+      if (authError || !user) {
+        throw new Error('User not authenticated.');
       }
 
-      if (walletAmount > walletBalance) {
-        throw new Error('Wallet exceeds balance.');
-      }
-
-      if (walletAmount > maxWalletRedemption) {
-        throw new Error('Wallet redemption limit exceeded.');
-      }
+      /* ================= CREATE ORDER ================= */
 
       const response = await fetch('/api/orders/create', {
+
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+
+        headers: {
+          'Content-Type': 'application/json',
+        },
+
         body: JSON.stringify({
           cartItems,
-          totalAmount: subtotal, // ✅ FIXED (only subtotal)
           restaurantId,
           paymentMethod,
-          walletAmount,
+          walletAmount: safeWalletAmount,
           promoCode: null,
-          promoDiscount: 0,
-          userId: user.id,
+          promoDiscount: 0
         }),
+
       });
 
-      const data = await response.json();
+      let data: any;
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Order failed');
+      try {
+
+        data = await response.json();
+
+      } catch {
+
+        throw new Error('Invalid server response');
+
       }
 
-      // Success
+      if (!response.ok) {
+        throw new Error(data?.error || 'Order creation failed');
+      }
+
+      if (!data?.orderId) {
+        throw new Error('Order ID missing from response');
+      }
+
+      /* ================= SUCCESS ================= */
+
       onClose();
+
       window.location.href = `/orders/${data.orderId}`;
 
     } catch (error: any) {
+
       console.error('Checkout error:', error);
-      setErrorMessage(error.message || 'Something went wrong.');
+
+      setErrorMessage(
+        error?.message || 'Something went wrong. Please try again.'
+      );
+
     } finally {
+
       setIsProcessing(false);
+
     }
+
   };
 
+  /* ================= UI ================= */
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md bg-white p-6 rounded-md shadow-xl">
 
-        <h2 className="text-lg font-bold mb-4">Checkout</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
 
-        <div className="mb-2 text-sm text-gray-600">
-          Items: {cartItems?.length || 0}
+      <div className="w-full max-w-md bg-slate-900 border border-slate-700 p-6 rounded-xl shadow-xl">
+
+        <h2 className="text-lg font-bold mb-4 text-white">
+          Checkout
+        </h2>
+
+        <div className="mb-3 text-sm text-slate-400">
+          Items: {cartItems.length}
         </div>
 
-        {/* Payment Method */}
+        {/* PAYMENT */}
+
         <div className="mb-4">
-          <label className="block mb-2 font-medium">Payment Method</label>
+
+          <label className="block mb-2 font-medium text-sm text-white">
+            Payment Method
+          </label>
 
           <div className="space-y-2">
-            <label className="flex items-center gap-2">
+
+            <label className="flex items-center gap-2 text-sm text-slate-300">
               <input
                 type="radio"
                 checked={paymentMethod === 'razorpay'}
@@ -142,7 +191,7 @@ const CheckoutModal = ({
               Razorpay (UPI/Card)
             </label>
 
-            <label className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-slate-300">
               <input
                 type="radio"
                 checked={paymentMethod === 'cod'}
@@ -150,12 +199,16 @@ const CheckoutModal = ({
               />
               Cash on Delivery
             </label>
+
           </div>
+
         </div>
 
-        {/* Wallet */}
+        {/* WALLET */}
+
         <div className="mb-4">
-          <label className="block mb-2 font-medium">
+
+          <label className="block mb-2 font-medium text-sm text-white">
             Use Wallet (Balance ₹{walletBalance})
           </label>
 
@@ -164,46 +217,67 @@ const CheckoutModal = ({
             value={walletAmount}
             min={0}
             max={Math.min(walletBalance, maxWalletRedemption)}
-            onChange={(e) => setWalletAmount(Number(e.target.value))}
-            className="w-full border p-2 rounded"
+            onChange={(e) =>
+              setWalletAmount(
+                Math.max(0, Number(e.target.value) || 0)
+              )
+            }
+            className="w-full border border-slate-700 bg-slate-800 p-2 rounded text-sm text-white"
           />
 
-          <p className="text-xs text-gray-500 mt-1">
-            Max allowed: ₹{maxWalletRedemption.toFixed(2)}
+          <p className="text-xs text-slate-400 mt-1">
+            Max allowed: ₹{maxWalletRedemption}
           </p>
+
         </div>
 
-        {/* Summary */}
-        <div className="mb-4 border-t pt-3">
-          <div className="flex justify-between">
+        {/* SUMMARY */}
+
+        <div className="mb-4 border-t border-slate-700 pt-3 space-y-1 text-sm">
+
+          <div className="flex justify-between text-slate-400">
             <span>Subtotal</span>
             <span>₹{subtotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between font-bold">
+
+          <div className="flex justify-between text-slate-400">
+            <span>Wallet</span>
+            <span>- ₹{safeWalletAmount.toFixed(2)}</span>
+          </div>
+
+          <div className="flex justify-between font-bold text-white text-base">
             <span>To Pay</span>
             <span>₹{remainingAmount.toFixed(2)}</span>
           </div>
+
         </div>
 
         {errorMessage && (
-          <div className="mb-4 text-red-600 text-sm">
+          <div className="mb-4 text-red-400 text-sm">
             {errorMessage}
           </div>
         )}
 
+        {/* BUTTON */}
+
         <button
           onClick={handleConfirm}
           disabled={isProcessing}
-          className="w-full bg-black text-white py-3 rounded"
+          className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:opacity-90"
         >
+
           {isProcessing
             ? 'Processing...'
             : `Confirm & Pay ₹${remainingAmount.toFixed(2)}`}
+
         </button>
 
       </div>
+
     </div>
+
   );
+
 };
 
 export default CheckoutModal;

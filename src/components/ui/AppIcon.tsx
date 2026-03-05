@@ -1,3 +1,5 @@
+// FILE: src/components/ui/AppIcon.tsx
+
 'use client';
 
 import React, { useEffect } from 'react';

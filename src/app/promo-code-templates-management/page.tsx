@@ -1,3 +1,5 @@
+// FILE: src/app/promo-code-templates-management/page.tsx
+
 'use client';
 
 import { useState, useMemo } from 'react';

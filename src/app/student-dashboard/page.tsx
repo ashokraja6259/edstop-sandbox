@@ -1,3 +1,5 @@
+// FILE: src/app/student-dashboard/page.tsx
+
 import type { Metadata } from 'next';
 import StudentDashboardInteractive from './components/StudentDashboardInteractive';
 

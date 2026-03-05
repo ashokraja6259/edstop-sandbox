@@ -1,3 +1,5 @@
+// FILE: src/components/ui/InactivityWarningModal.tsx
+
 'use client';
 
 import { useEffect, useRef } from 'react';

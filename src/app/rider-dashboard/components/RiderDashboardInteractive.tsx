@@ -1,3 +1,5 @@
+// FILE: src/app/rider-dashboard/components/RiderDashboardInteractive.tsx
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';

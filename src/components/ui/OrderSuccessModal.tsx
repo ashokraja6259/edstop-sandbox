@@ -1,3 +1,5 @@
+// FILE: src/components/ui/OrderSuccessModal.tsx
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';

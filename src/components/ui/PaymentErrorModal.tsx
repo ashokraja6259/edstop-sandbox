@@ -1,3 +1,5 @@
+// FILE: src/components/ui/PaymentErrorModal.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';

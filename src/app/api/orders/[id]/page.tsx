@@ -1,19 +1,18 @@
-import { createClient } from "@supabase/supabase-js";
+// FILE: src/app/api/orders/[id]/page.tsx
+
+import { createClient } from '@/lib/supabase/server';
 
 interface Props {
   params: { id: string };
 }
 
 export default async function OrderDetailsPage({ params }: Props) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const supabase = await createClient(); // ✅ uses secure server client
 
   const { data: order, error } = await supabase
-    .from("orders")
-    .select("*")
-    .eq("id", params.id)
+    .from('orders')
+    .select('*')
+    .eq('id', params.id)
     .single();
 
   if (error || !order) {

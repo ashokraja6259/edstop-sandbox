@@ -1,3 +1,5 @@
+// FILE: src/components/common/StatusTracker.tsx
+
 'use client';
 
 import Icon from '@/components/ui/AppIcon';

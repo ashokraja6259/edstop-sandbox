@@ -1,3 +1,5 @@
+// FILE: src/components/ui/InactivityManager.tsx
+
 'use client';
 
 import { useCallback } from 'react';

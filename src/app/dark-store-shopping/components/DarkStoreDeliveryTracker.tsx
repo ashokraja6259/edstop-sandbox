@@ -1,3 +1,5 @@
+// FILE: src/app/dark-store-shopping/components/DarkStoreDeliveryTracker.tsx
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -110,7 +112,8 @@ const DarkStoreDeliveryTracker = ({ delivery, isLoading }: DarkStoreDeliveryTrac
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {delivery.etaMinutes !== null && delivery.status !== 'delivered' && (
+          {delivery.etaMinutes !== null &&
+ delivery.status === 'out_for_delivery' && (
             <div className="flex items-center gap-1 px-2 py-1 bg-success/20 rounded-lg">
               <Icon name="ClockIcon" size={12} className="text-success" />
               <span className="font-data text-xs font-bold text-success">{delivery.etaMinutes} min</span>
@@ -182,7 +185,8 @@ const DarkStoreDeliveryTracker = ({ delivery, isLoading }: DarkStoreDeliveryTrac
           <div className="mt-3 px-3 py-2 bg-primary/10 rounded-xl">
             <p className="font-caption text-xs text-text-secondary text-center">
               {config.description}
-              {delivery.etaMinutes !== null && delivery.status === 'out_for_delivery' && (
+              {delivery.etaMinutes !== null &&
+ delivery.status === 'out_for_delivery' && (
                 <span className="text-primary font-bold"> · {delivery.etaMinutes} min away</span>
               )}
             </p>

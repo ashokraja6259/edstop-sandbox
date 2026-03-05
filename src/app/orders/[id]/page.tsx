@@ -1,3 +1,5 @@
+// FILE: src/app/orders/[id]/page.tsx
+
 import { createClient } from "@supabase/supabase-js";
 
 export default async function OrderDetailsPage({ params }: any) {
