@@ -6,7 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
-import { createClient } from '@/lib/supabaseClient';
+import { createClient } from '../../lib/supabaseClient';
 
 type RestrictionType = 'insufficient_permissions' | 'suspended' | 'unauthenticated';
 
