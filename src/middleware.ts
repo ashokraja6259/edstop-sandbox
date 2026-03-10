@@ -58,6 +58,7 @@ export async function middleware(request: NextRequest) {
 
   const protectedRoutes = [
     '/dashboard',
+    '/student-dashboard',
     '/food',
     '/store',
     '/wallet',
@@ -70,6 +71,7 @@ export async function middleware(request: NextRequest) {
     '/promo-code-templates-management',
     '/template-review-queue',
     '/vendor',
+    '/order-history',
   ];
 
   const isProtected = protectedRoutes.some((route) =>
@@ -83,7 +85,7 @@ export async function middleware(request: NextRequest) {
 
   // If logged in and visiting login → redirect
   if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/student-dashboard', request.url));
   }
 
   const requiredRole = getRequiredRole(pathname);
@@ -108,6 +110,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/dashboard/:path*',
+    '/student-dashboard/:path*',
     '/food/:path*',
     '/store/:path*',
     '/wallet/:path*',
@@ -120,5 +123,6 @@ export const config = {
     '/promo-code-templates-management/:path*',
     '/template-review-queue/:path*',
     '/vendor/:path*',
+    '/order-history/:path*',
   ],
 };
