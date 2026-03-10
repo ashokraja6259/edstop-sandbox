@@ -16,7 +16,12 @@ interface CreateOrderInput {
   paymentMethod: PaymentMethod;
   walletAmount?: number;
   promoCode?: string | null;
-  promoDiscount?: number;
+  idempotencyKey?: string | null;
+}
+
+interface AtomicCheckoutResult {
+  order_id: string;
+  idempotent_replay: boolean;
 }
 
 export async function createOrder(
@@ -31,7 +36,7 @@ export async function createOrder(
     paymentMethod,
     walletAmount = 0,
     promoCode = null,
-    promoDiscount = 0
+    idempotencyKey = null,
   } = input;
 
   /* ================= VALIDATION ================= */
@@ -56,149 +61,84 @@ export async function createOrder(
     throw new Error("Invalid restaurant");
   }
 
-  /* ================= CALCULATE TOTAL ================= */
+  /* ================= SERVER-SIDE ITEM VALIDATION ================= */
 
-  const subtotal = cartItems.reduce((sum, item) => {
-
-    const price = Number(item.price) || 0;
-    const quantity = Number(item.quantity) || 0;
-
-    return sum + price * quantity;
-
-  }, 0);
-
-  if (subtotal <= 0) {
-    throw new Error("Invalid order amount");
-  }
-
-  const safeWalletAmount = Math.max(0, Number(walletAmount) || 0);
-  const safePromoDiscount = Math.max(0, Number(promoDiscount) || 0);
-
-  const finalAmount = Math.max(
-    0,
-    subtotal - safeWalletAmount - safePromoDiscount
-  );
-
-  /* ================= ORDER NUMBER ================= */
-
-  const orderNumber =
-    `ED${Date.now()}${Math.floor(Math.random() * 1000)}`;
-
-  /* ================= INITIAL STATUS ================= */
-
-  const initialStatus = "pending";
-
-  /* ================= CREATE ORDER ================= */
-
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({
-      user_id: userId,
-      restaurant_id: restaurantId,
-      order_number: orderNumber,
-      order_type: "food",
-      status: initialStatus,
-      total_amount: subtotal,
-      discount_amount: safePromoDiscount,
-      promo_code: promoCode,
-      promo_discount: safePromoDiscount,
-      final_amount: finalAmount,
-      payment_method: paymentMethod,
-      wallet_used: safeWalletAmount
-    })
-    .select()
-    .single();
-
-  if (orderError || !order) {
-    throw new Error(orderError?.message || "Failed to create order");
-  }
-
-  /* ================= INSERT ORDER ITEMS ================= */
-
-  const orderItems = cartItems.map(item => ({
-    order_id: order.id,
-    menu_item_id: item.id,
-    item_name: item.name,
-    quantity: item.quantity,
-    price: item.price,
-    total_price: item.price * item.quantity
+  const requestedItems = cartItems.map(item => ({
+    id: item.id,
+    quantity: Math.max(0, Number(item.quantity) || 0),
   }));
 
-  const { error: itemsError } = await supabase
-    .from("order_items")
-    .insert(orderItems);
-
-  if (itemsError) {
-    throw new Error(itemsError.message);
+  if (requestedItems.some(item => !item.id || item.quantity < 1)) {
+    throw new Error("Invalid cart item quantity");
   }
 
-  /* ================= WALLET HANDLING ================= */
+  const uniqueItemIds = [...new Set(requestedItems.map(item => item.id))];
 
-  if (safeWalletAmount > 0) {
+  const { data: dbItems, error: dbItemsError } = await supabase
+    .from("menu_items")
+    .select("id, name, price, is_available, restaurant_id")
+    .in("id", uniqueItemIds)
+    .eq("restaurant_id", restaurantId);
 
-    const { data: wallet, error: walletFetchError } = await supabase
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", userId)
-      .single();
-
-    if (walletFetchError || !wallet) {
-      throw new Error("Wallet not found");
-    }
-
-    const currentBalance = Number(wallet.balance) || 0;
-
-    if (currentBalance < safeWalletAmount) {
-      throw new Error("Insufficient wallet balance");
-    }
-
-    const newBalance = currentBalance - safeWalletAmount;
-
-    const { error: walletUpdateError } = await supabase
-      .from("wallets")
-      .update({
-        balance: newBalance
-      })
-      .eq("user_id", userId);
-
-    if (walletUpdateError) {
-      throw new Error(walletUpdateError.message);
-    }
-
-    const { error: ledgerError } = await supabase
-      .from("wallet_transactions")
-      .insert({
-        user_id: userId,
-        amount: -safeWalletAmount,
-        type: "order_payment",
-        reference_id: order.id,
-        description: `Wallet used for order ${orderNumber}`
-      });
-
-    if (ledgerError) {
-      throw new Error(ledgerError.message);
-    }
-
+  if (dbItemsError || !dbItems) {
+    throw new Error("Failed to validate cart items");
   }
 
-  /* ================= ORDER EVENT ================= */
-
-  const { error: eventError } = await supabase
-    .from("order_events")
-    .insert({
-      order_id: order.id,
-      event_type: "ORDER_CREATED",
-      old_status: null,
-      new_status: initialStatus,
-      metadata: {
-        payment_method: paymentMethod,
-        wallet_used: safeWalletAmount
-      }
-    });
-
-  if (eventError) {
-    console.error("Order event insert failed:", eventError);
+  if (dbItems.length !== uniqueItemIds.length) {
+    throw new Error("Some cart items are invalid for this restaurant");
   }
 
-  return order;
+  const menuItemMap = new Map(
+    dbItems.map(item => [item.id, item])
+  );
+
+  const normalizedItems = requestedItems.map((requestedItem) => {
+    const dbItem = menuItemMap.get(requestedItem.id);
+
+    if (!dbItem || dbItem.is_available === false) {
+      throw new Error("One or more items are unavailable");
+    }
+
+    const serverPrice = Number(dbItem.price) || 0;
+
+    return {
+      id: requestedItem.id,
+      name: dbItem.name,
+      quantity: requestedItem.quantity,
+      price: serverPrice,
+      totalPrice: serverPrice * requestedItem.quantity,
+    };
+  });
+
+  const safeWalletAmount = Math.max(0, Number(walletAmount) || 0);
+
+  /* ================= ATOMIC CHECKOUT WRITE ================= */
+
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    "create_order_atomic",
+    {
+      p_user_id: userId,
+      p_restaurant_id: restaurantId,
+      p_payment_method: paymentMethod,
+      p_items: normalizedItems,
+      p_wallet_amount: safeWalletAmount,
+      p_promo_code: promoCode,
+      p_idempotency_key: idempotencyKey,
+    }
+  );
+
+  if (rpcError) {
+    throw new Error(rpcError.message || "Checkout transaction failed");
+  }
+
+  const result = rpcData as AtomicCheckoutResult | null;
+
+  if (!result?.order_id) {
+    throw new Error("Checkout transaction returned no order");
+  }
+
+  return {
+    id: result.order_id,
+    idempotentReplay: Boolean(result.idempotent_replay),
+  };
 }
