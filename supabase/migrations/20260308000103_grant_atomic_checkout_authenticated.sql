@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.create_order_atomic(UUID, UUID, TEXT, JSONB, NUMERIC, TEXT, TEXT) TO authenticated;
