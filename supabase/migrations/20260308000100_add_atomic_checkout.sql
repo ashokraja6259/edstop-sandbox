@@ -35,6 +35,7 @@ DECLARE
   v_wallet_balance NUMERIC(10, 2);
   v_new_balance NUMERIC(10, 2);
   v_promo RECORD;
+  v_promo_id UUID := NULL;
   v_requested_item_count INTEGER := 0;
   v_valid_item_count INTEGER := 0;
   v_payment_method TEXT;
@@ -168,6 +169,7 @@ BEGIN
     END IF;
 
     v_promo_discount := GREATEST(0, COALESCE(v_promo_discount, 0));
+    v_promo_id := v_promo.id;
   END IF;
 
   -- Wallet balance lock + deduction safety
@@ -286,10 +288,10 @@ BEGIN
     )
   );
 
-  IF v_promo.code IS NOT NULL THEN
+  IF v_promo_id IS NOT NULL THEN
     UPDATE public.promo_codes
     SET used_count = COALESCE(used_count, 0) + 1
-    WHERE id = v_promo.id;
+    WHERE id = v_promo_id;
   END IF;
 
   RETURN jsonb_build_object(
