@@ -1,79 +1,79 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-import { User } from '@supabase/supabase-js'
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { User } from '@supabase/supabase-js';
 
 type UserProfile = {
-  id: string
-  full_name: string | null
-  role: 'student' | 'rider' | 'admin' | null
-}
+  id: string;
+  full_name: string | null;
+  role: 'student' | 'rider' | 'admin' | null;
+};
 
 export default function Home() {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   const loadUserProfile = async (userId: string) => {
     const { data } = await supabase
       .from('user_profiles')
       .select('id, full_name, role')
       .eq('id', userId)
-      .maybeSingle()
+      .maybeSingle();
 
-    setProfile((data as UserProfile | null) ?? null)
-  }
+    setProfile((data as UserProfile | null) ?? null);
+  };
 
   useEffect(() => {
     const init = async () => {
-      const { data } = await supabase.auth.getUser()
-      const currentUser = data.user
-      setUser(currentUser)
+      const { data } = await supabase.auth.getUser();
+      const currentUser = data.user;
+      setUser(currentUser);
 
       if (currentUser) {
-        await loadUserProfile(currentUser.id)
+        await loadUserProfile(currentUser.id);
       }
-    }
+    };
 
-    init()
+    init();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
 
         if (currentUser) {
-          await loadUserProfile(currentUser.id)
+          await loadUserProfile(currentUser.id);
         } else {
-          setProfile(null)
+          setProfile(null);
         }
       }
-    )
+    );
 
     return () => {
-      authListener.subscription.unsubscribe()
-    }
-  }, [])
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({ provider: 'google' })
-  }
+    await supabase.auth.signInWithOAuth({ provider: 'google' });
+  };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-  }
+    await supabase.auth.signOut();
+  };
 
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-100">
         <button
           onClick={handleLogin}
-          className="px-6 py-3 bg-black text-white rounded-lg"
+          className="rounded-lg bg-black px-6 py-3 text-white"
         >
           Login with Google
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -82,18 +82,18 @@ export default function Home() {
         <p className="mb-2 text-lg font-medium">
           Welcome, {profile?.full_name || user.email}
         </p>
+
         {profile?.role && (
-          <p className="mb-4 text-sm text-gray-600">
-            Role: {profile.role}
-          </p>
+          <p className="mb-4 text-sm text-gray-600">Role: {profile.role}</p>
         )}
+
         <button
           onClick={handleLogout}
-          className="px-6 py-3 bg-red-500 text-white rounded-lg"
+          className="rounded-lg bg-red-500 px-6 py-3 text-white"
         >
           Logout
         </button>
       </div>
     </div>
-  )
+  );
 }
