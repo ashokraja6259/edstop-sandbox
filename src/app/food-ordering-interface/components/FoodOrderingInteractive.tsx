@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabaseClient';
 
 import HeaderBrand from '@/components/common/HeaderBrand';
@@ -40,6 +41,8 @@ interface Restaurant {
   minimum_order: number;
 }
 
+type DiscoveryFilter = 'all' | 'top-rated' | 'fast-delivery' | 'low-minimum';
+
 interface CartItem {
   id: string;
   name: string;
@@ -70,6 +73,8 @@ const FoodOrderingInteractive = () => {
 
   const [loadingRestaurants, setLoadingRestaurants] = useState(true);
   const [loadingMenu, setLoadingMenu] = useState(false);
+  const [restaurantSearch, setRestaurantSearch] = useState('');
+  const [activeDiscoveryFilter, setActiveDiscoveryFilter] = useState<DiscoveryFilter>('all');
 
   /* ================= REALTIME ================= */
 
@@ -169,6 +174,33 @@ const FoodOrderingInteractive = () => {
 
   const minimumOrderMet = subtotal >= minimumOrder;
 
+  const filteredRestaurants = useMemo(() => {
+    const query = restaurantSearch.trim().toLowerCase();
+
+    return restaurants.filter((restaurant) => {
+      const matchesSearch =
+        query.length === 0 ||
+        restaurant.name.toLowerCase().includes(query);
+
+      if (!matchesSearch) return false;
+
+      if (activeDiscoveryFilter === 'top-rated') {
+        return (restaurant.rating ?? 0) >= 4.2;
+      }
+
+      if (activeDiscoveryFilter === 'fast-delivery') {
+        const minutes = Number.parseInt(restaurant.delivery_time, 10);
+        return Number.isFinite(minutes) ? minutes <= 25 : false;
+      }
+
+      if (activeDiscoveryFilter === 'low-minimum') {
+        return Number(restaurant.minimum_order) <= 149;
+      }
+
+      return true;
+    });
+  }, [restaurants, restaurantSearch, activeDiscoveryFilter]);
+
   /* ================= ADD TO CART ================= */
 
   const handleAddToCart = (itemId: string, quantity: number) => {
@@ -265,9 +297,18 @@ const FoodOrderingInteractive = () => {
       {/* HEADER */}
 
       <header className="sticky top-0 z-40 bg-card border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center gap-3">
           <HeaderBrand />
-          <WalletIndicator balance={500} />
+          <div className="flex items-center gap-2">
+            <Link
+              href="/student-dashboard"
+              className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md border border-border hover:bg-muted transition-colors"
+            >
+              <Icon name="ArrowLeftIcon" size={16} />
+              Dashboard
+            </Link>
+            <WalletIndicator balance={500} />
+          </div>
         </div>
       </header>
 
@@ -277,11 +318,49 @@ const FoodOrderingInteractive = () => {
 
         {!selectedRestaurant ? (
 
-          <div className="space-y-4">
+          <div className="space-y-5">
 
-            <h1 className="text-3xl font-bold">
-              Order Food
-            </h1>
+            <section className="rounded-xl border border-border bg-card p-5 sm:p-6">
+              <h1 className="text-3xl font-bold">Order Food</h1>
+              <p className="mt-2 text-sm text-muted-foreground">Choose from campus restaurants and place your next meal in minutes.</p>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full border border-border px-3 py-1">{restaurants.length} restaurants open</span>
+                <span className="rounded-full border border-border px-3 py-1">Free delivery on select outlets</span>
+              </div>
+            </section>
+
+            <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3">
+              <div className="relative">
+                <Icon name="MagnifyingGlassIcon" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={restaurantSearch}
+                  onChange={(e) => setRestaurantSearch(e.target.value)}
+                  placeholder="Search restaurants"
+                  className="w-full rounded-md border border-border bg-background py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'top-rated', label: 'Top Rated' },
+                  { key: 'fast-delivery', label: 'Fast Delivery' },
+                  { key: 'low-minimum', label: 'Low Min Order' },
+                ].map((filter) => (
+                  <button
+                    key={filter.key}
+                    onClick={() => setActiveDiscoveryFilter(filter.key as DiscoveryFilter)}
+                    className={`rounded-full border px-3 py-1 text-xs transition-colors ${
+                      activeDiscoveryFilter === filter.key
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:bg-muted'
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </section>
 
             {loadingRestaurants && (
               <p className="text-sm text-muted-foreground">
@@ -289,7 +368,14 @@ const FoodOrderingInteractive = () => {
               </p>
             )}
 
-            {restaurants.map(r => (
+            {!loadingRestaurants && filteredRestaurants.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No restaurants match your search. Try a different filter.
+              </p>
+            )}
+
+            <div className="space-y-3">
+              {filteredRestaurants.map(r => (
 
               <RestaurantCard
                 key={r.id}
@@ -304,7 +390,8 @@ const FoodOrderingInteractive = () => {
                 onClick={() => handleRestaurantSelect(r.id)}
               />
 
-            ))}
+              ))}
+            </div>
 
           </div>
 
@@ -316,16 +403,22 @@ const FoodOrderingInteractive = () => {
 
             <div className="lg:col-span-2 space-y-6">
 
-              <button
-                onClick={() => {
-                  setSelectedRestaurant(null);
-                  setCart([]);
-                }}
-                className="text-sm flex items-center gap-2"
-              >
-                <Icon name="ArrowLeftIcon" size={16} />
-                Back
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedRestaurant(null);
+                    setCart([]);
+                  }}
+                  className="text-sm inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 hover:bg-muted transition-colors"
+                >
+                  <Icon name="ArrowLeftIcon" size={16} />
+                  Back to Restaurants
+                </button>
+
+                <div className="text-sm text-muted-foreground">
+                  Ordering from <span className="font-semibold text-foreground">{selectedRestaurantData?.name}</span>
+                </div>
+              </div>
 
               {loadingMenu && (
                 <p className="text-sm text-muted-foreground">

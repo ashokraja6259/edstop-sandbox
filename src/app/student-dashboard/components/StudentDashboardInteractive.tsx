@@ -76,7 +76,7 @@ const StudentDashboardInteractive = () => {
   const [greeting, setGreeting] = useState('');
   const [isOffline, setIsOffline] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const toast = useToast();
 
@@ -94,6 +94,13 @@ const StudentDashboardInteractive = () => {
       setIsOffline(false);
     },
   });
+
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [loading, user, router]);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -222,6 +229,20 @@ const StudentDashboardInteractive = () => {
     { label: 'Cashback Earned', value: `₹${cashbackEarned.toFixed(0)}`, icon: 'StarIcon', color: 'accent' },
     { label: 'Active Orders', value: String(activeOrders.length), icon: 'TruckIcon', color: 'warning' },
   ];
+
+  if (loading || (!user && isHydrated)) {
+    return (
+      <div className="min-h-screen gradient-mesh">
+        <div className="container mx-auto px-4 py-8">
+          <div className="animate-pulse space-y-6">
+            <div className="h-16 bg-white/5 rounded-2xl"></div>
+            <div className="h-48 bg-white/5 rounded-3xl"></div>
+            <div className="h-64 bg-white/5 rounded-2xl"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isHydrated) {
     return (
