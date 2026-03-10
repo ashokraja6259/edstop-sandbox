@@ -66,7 +66,7 @@ export default function NotFound() {
                     </button>
 
                     <Link
-                        href="/student-dashboard"
+                        href="/"
                         className="inline-flex items-center justify-center gap-2 gradient-primary text-white px-6 py-3 rounded-xl font-medium hover:opacity-90 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
                         aria-label="Navigate to home page"
                     >
@@ -97,7 +97,7 @@ export default function NotFound() {
                             support@edstop.in
                         </a>
                         <Link
-                            href="/student-dashboard"
+                            href="/"
                             className="inline-flex items-center justify-center gap-2 text-sm text-accent hover:text-accent/80 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background rounded-lg px-3 py-1.5"
                             aria-label="Visit EdStop help center"
                         >
