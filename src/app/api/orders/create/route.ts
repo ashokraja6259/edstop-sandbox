@@ -2,6 +2,20 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createOrder } from "@/lib/services/orderService";
 
+interface CreateOrderRequestBody {
+  cartItems: Array<{
+    id: string;
+    name?: string;
+    price?: number;
+    quantity: number;
+  }>;
+  restaurantId: string;
+  paymentMethod: "razorpay" | "cod";
+  walletAmount?: number;
+  promoCode?: string | null;
+  idempotencyKey?: string | null;
+}
+
 export async function POST(req: Request) {
 
   try {
@@ -24,10 +38,10 @@ export async function POST(req: Request) {
 
     /* ================= PARSE BODY ================= */
 
-    let body: any;
+    let body: CreateOrderRequestBody;
 
     try {
-      body = await req.json();
+      body = (await req.json()) as CreateOrderRequestBody;
     } catch {
       return NextResponse.json(
         { error: "Invalid request body" },
@@ -41,7 +55,7 @@ export async function POST(req: Request) {
       paymentMethod,
       walletAmount,
       promoCode,
-      promoDiscount
+      idempotencyKey
     } = body;
 
     /* ================= VALIDATION ================= */
@@ -80,10 +94,16 @@ export async function POST(req: Request) {
       Number(walletAmount) || 0
     );
 
-    const safePromoDiscount = Math.max(
-      0,
-      Number(promoDiscount) || 0
-    );
+    if (
+      idempotencyKey !== undefined &&
+      idempotencyKey !== null &&
+      (typeof idempotencyKey !== "string" || idempotencyKey.length > 128)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid idempotency key" },
+        { status: 400 }
+      );
+    }
 
     /* ================= CREATE ORDER ================= */
 
@@ -94,7 +114,7 @@ export async function POST(req: Request) {
       paymentMethod,
       walletAmount: safeWalletAmount,
       promoCode: promoCode || null,
-      promoDiscount: safePromoDiscount
+      idempotencyKey: idempotencyKey || null
     });
 
     if (!order?.id) {
@@ -108,15 +128,18 @@ export async function POST(req: Request) {
       orderId: order.id
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
 
     console.error("Order creation error:", error);
 
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to create order";
+
     return NextResponse.json(
       {
-        error:
-          error?.message ||
-          "Failed to create order"
+        error: message
       },
       { status: 500 }
     );
