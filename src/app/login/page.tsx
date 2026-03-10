@@ -53,8 +53,9 @@ export default function LoginPage() {
         await signIn(email, password);
         router.push('/student-dashboard');
       }
-    } catch (err: any) {
-      setError(err.message || `Failed to ${isSignUp ? 'sign up' : 'sign in'}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : `Failed to ${isSignUp ? 'sign up' : 'sign in'}`;
+      setError(message);
     } finally {
       setLoading(false);
     }
