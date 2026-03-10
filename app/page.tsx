@@ -4,11 +4,25 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User } from '@supabase/supabase-js'
 
+type UserProfile = {
+  id: string
+  full_name: string | null
+  role: 'student' | 'rider' | 'admin' | null
+}
+
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<any>(null)
-  const [phone, setPhone] = useState('')
-  const [hostel, setHostel] = useState('')
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+
+  const loadUserProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('id, full_name, role')
+      .eq('id', userId)
+      .maybeSingle()
+
+    setProfile((data as UserProfile | null) ?? null)
+  }
 
   useEffect(() => {
     const init = async () => {
@@ -17,8 +31,7 @@ export default function Home() {
       setUser(currentUser)
 
       if (currentUser) {
-        await createProfileIfNotExists(currentUser)
-        await loadProfile(currentUser.id)
+        await loadUserProfile(currentUser.id)
       }
     }
 
@@ -30,8 +43,9 @@ export default function Home() {
         setUser(currentUser)
 
         if (currentUser) {
-          await createProfileIfNotExists(currentUser)
-          await loadProfile(currentUser.id)
+          await loadUserProfile(currentUser.id)
+        } else {
+          setProfile(null)
         }
       }
     )
@@ -40,41 +54,6 @@ export default function Home() {
       authListener.subscription.unsubscribe()
     }
   }, [])
-
-  const createProfileIfNotExists = async (user: User) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
-    if (!data) {
-      await supabase.from('profiles').insert({
-        id: user.id,
-        name: user.user_metadata?.full_name,
-        role: 'student'
-      })
-    }
-  }
-
-  const loadProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-
-    setProfile(data)
-  }
-
-  const updateProfile = async () => {
-    await supabase
-      .from('profiles')
-      .update({ phone, hostel })
-      .eq('id', user?.id)
-
-    await loadProfile(user!.id)
-  }
 
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({ provider: 'google' })
@@ -97,44 +76,17 @@ export default function Home() {
     )
   }
 
-  if (profile && (!profile.phone || !profile.hostel)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="bg-white p-6 rounded-lg shadow-md w-80">
-          <h2 className="mb-4 text-lg font-semibold">
-            Complete Your Profile
-          </h2>
-          <input
-            type="text"
-            placeholder="Phone Number"
-            className="w-full mb-3 p-2 border rounded"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Hostel Name"
-            className="w-full mb-3 p-2 border rounded"
-            value={hostel}
-            onChange={(e) => setHostel(e.target.value)}
-          />
-          <button
-            onClick={updateProfile}
-            className="w-full bg-black text-white py-2 rounded"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <div className="text-center">
-        <p className="mb-4 text-lg">
-          Welcome, {user.email}
+        <p className="mb-2 text-lg font-medium">
+          Welcome, {profile?.full_name || user.email}
         </p>
+        {profile?.role && (
+          <p className="mb-4 text-sm text-gray-600">
+            Role: {profile.role}
+          </p>
+        )}
         <button
           onClick={handleLogout}
           className="px-6 py-3 bg-red-500 text-white rounded-lg"

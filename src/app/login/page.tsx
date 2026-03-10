@@ -59,7 +59,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
- <h1 className="text-red-500 text-3xl">LOGIN PAGE LOADED</h1>
   return (
    
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
