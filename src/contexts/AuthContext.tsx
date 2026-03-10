@@ -107,11 +107,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   /* ───────── AUTH METHODS ───────── */
 
   const signUp = async (email: string, password: string) => {
-    return supabase.auth.signUp({ email, password });
+    const response = await supabase.auth.signUp({ email, password });
+
+    if (response.error) {
+      throw response.error;
+    }
+
+    return response;
   };
 
   const signIn = async (email: string, password: string) => {
-    return supabase.auth.signInWithPassword({ email, password });
+    const response = await supabase.auth.signInWithPassword({ email, password });
+
+    if (response.error) {
+      throw response.error;
+    }
+
+    return response;
   };
 
   const signOut = async () => {

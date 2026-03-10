@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabaseClient';
 
 import HeaderBrand from '@/components/common/HeaderBrand';
@@ -265,9 +266,18 @@ const FoodOrderingInteractive = () => {
       {/* HEADER */}
 
       <header className="sticky top-0 z-40 bg-card border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center gap-3">
           <HeaderBrand />
-          <WalletIndicator balance={500} />
+          <div className="flex items-center gap-2">
+            <Link
+              href="/student-dashboard"
+              className="inline-flex items-center gap-2 text-sm px-3 py-2 rounded-md border border-border hover:bg-muted transition-colors"
+            >
+              <Icon name="ArrowLeftIcon" size={16} />
+              Dashboard
+            </Link>
+            <WalletIndicator balance={500} />
+          </div>
         </div>
       </header>
 
@@ -277,11 +287,16 @@ const FoodOrderingInteractive = () => {
 
         {!selectedRestaurant ? (
 
-          <div className="space-y-4">
+          <div className="space-y-5">
 
-            <h1 className="text-3xl font-bold">
-              Order Food
-            </h1>
+            <section className="rounded-xl border border-border bg-card p-5 sm:p-6">
+              <h1 className="text-3xl font-bold">Order Food</h1>
+              <p className="mt-2 text-sm text-muted-foreground">Choose from campus restaurants and place your next meal in minutes.</p>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full border border-border px-3 py-1">{restaurants.length} restaurants open</span>
+                <span className="rounded-full border border-border px-3 py-1">Free delivery on select outlets</span>
+              </div>
+            </section>
 
             {loadingRestaurants && (
               <p className="text-sm text-muted-foreground">
@@ -289,7 +304,8 @@ const FoodOrderingInteractive = () => {
               </p>
             )}
 
-            {restaurants.map(r => (
+            <div className="space-y-3">
+              {restaurants.map(r => (
 
               <RestaurantCard
                 key={r.id}
@@ -304,7 +320,8 @@ const FoodOrderingInteractive = () => {
                 onClick={() => handleRestaurantSelect(r.id)}
               />
 
-            ))}
+              ))}
+            </div>
 
           </div>
 
@@ -316,16 +333,22 @@ const FoodOrderingInteractive = () => {
 
             <div className="lg:col-span-2 space-y-6">
 
-              <button
-                onClick={() => {
-                  setSelectedRestaurant(null);
-                  setCart([]);
-                }}
-                className="text-sm flex items-center gap-2"
-              >
-                <Icon name="ArrowLeftIcon" size={16} />
-                Back
-              </button>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedRestaurant(null);
+                    setCart([]);
+                  }}
+                  className="text-sm inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 hover:bg-muted transition-colors"
+                >
+                  <Icon name="ArrowLeftIcon" size={16} />
+                  Back to Restaurants
+                </button>
+
+                <div className="text-sm text-muted-foreground">
+                  Ordering from <span className="font-semibold text-foreground">{selectedRestaurantData?.name}</span>
+                </div>
+              </div>
 
               {loadingMenu && (
                 <p className="text-sm text-muted-foreground">
