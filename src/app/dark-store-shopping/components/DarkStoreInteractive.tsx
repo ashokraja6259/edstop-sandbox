@@ -14,6 +14,7 @@ import { useRetry } from '@/hooks/useRetry';
 import { useToast } from '@/contexts/ToastContext';
 import { useDarkStoreRealtime } from '@/hooks/useDarkStoreRealtime';
 import { useAuth } from '@/contexts/AuthContext';
+import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 
 interface Product {
   id: string;
@@ -43,6 +44,7 @@ interface CartItem {
 }
 
 const DarkStoreInteractive = () => {
+  const supabase = createSupabaseClient();
   const [isHydrated, setIsHydrated] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -461,8 +463,6 @@ const DarkStoreInteractive = () => {
 
       // Persist order to Supabase
       if (user?.id) {
-        const { createClient } = require('@/lib/supabase/client');
-        const supabase = createClient();
         supabase.from('orders').insert({
           user_id: user.id,
           order_number: orderId,
@@ -649,7 +649,7 @@ const DarkStoreInteractive = () => {
               <span className="text-primary font-bold">{filteredProducts.length}</span> products found
             </p>
             {searchQuery && (
-              <span className="font-caption text-xs text-primary">Searching: "{searchQuery}"</span>
+              <span className="font-caption text-xs text-primary">Searching: &quot;{searchQuery}&quot;</span>
             )}
           </div>
 
