@@ -53,13 +53,13 @@ export default function LoginPage() {
         await signIn(email, password);
         router.push('/student-dashboard');
       }
-    } catch (err: any) {
-      setError(err.message || `Failed to ${isSignUp ? 'sign up' : 'sign in'}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : `Failed to ${isSignUp ? 'sign up' : 'sign in'}`;
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
- <h1 className="text-red-500 text-3xl">LOGIN PAGE LOADED</h1>
   return (
    
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
