@@ -1,6 +1,7 @@
 // FILE: src/app/orders/[id]/page.tsx
 
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 
 interface Props {
@@ -42,6 +43,14 @@ export default async function OrderDetailsPage({ params }: Props) {
           <p className="mt-2 text-sm text-slate-600">
             This order does not exist, or you do not have permission to view it.
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href="/food-ordering-interface" className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              Continue Ordering
+            </Link>
+            <Link href="/student-dashboard" className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              Back to Dashboard
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -105,6 +114,18 @@ export default async function OrderDetailsPage({ params }: Props) {
               ))}
             </ul>
           )}
+        </div>
+
+        <div className="mt-6 border-t border-slate-200 pt-5">
+          <h2 className="font-semibold text-slate-900">What next?</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/food-ordering-interface" className="inline-flex items-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+              Continue Ordering
+            </Link>
+            <Link href="/student-dashboard" className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              Back to Dashboard
+            </Link>
+          </div>
         </div>
       </div>
     </div>
