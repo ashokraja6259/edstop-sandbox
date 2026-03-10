@@ -1,8 +1,12 @@
 // FILE: src/app/api/data-export/route.ts
 
+
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+export const dynamic = "force-dynamic";
+
 
 export const dynamic = 'force-dynamic';
 
