@@ -44,7 +44,7 @@ interface CartItem {
 }
 
 const DarkStoreInteractive = () => {
-  const supabase = createSupabaseClient();
+  const supabase = useMemo(() => createSupabaseClient(), []);
   const [isHydrated, setIsHydrated] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,7 +99,31 @@ const DarkStoreInteractive = () => {
     manualRetry(true);
   };
 
-  const walletBalance = 450.00;
+  const [walletBalance, setWalletBalance] = useState(450.0);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelled = false;
+
+    const loadWalletBalance = async () => {
+      const { data } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!cancelled && data?.balance !== undefined && data?.balance !== null) {
+        setWalletBalance(Number(data.balance));
+      }
+    };
+
+    loadWalletBalance();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, user?.id]);
 
   const categories: Category[] = [
   { id: 'all', name: 'All Items', icon: 'ShoppingBagIcon', count: 24 },
@@ -652,6 +676,27 @@ const DarkStoreInteractive = () => {
               <span className="font-caption text-xs text-primary">Searching: &quot;{searchQuery}&quot;</span>
             )}
           </div>
+
+          {activeOrderId && !orderSuccess && (
+            <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <p className="text-sm font-semibold text-white">Recent Dark Store order: #{activeOrderId}</p>
+              <p className="mt-1 text-xs text-white/70">You can track updates below or return to dashboard anytime.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => { window.location.href = '/student-dashboard'; }}
+                  className="rounded-md border border-white/20 px-3 py-1.5 text-xs text-white hover:bg-white/10"
+                >
+                  Back to Dashboard
+                </button>
+                <button
+                  onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}
+                  className="rounded-md border border-white/20 px-3 py-1.5 text-xs text-white hover:bg-white/10"
+                >
+                  Continue Shopping
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Network/API Error Banner */}
           {hasError && (
