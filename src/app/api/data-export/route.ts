@@ -1,12 +1,8 @@
 // FILE: src/app/api/data-export/route.ts
 
-
-
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-export const dynamic = "force-dynamic";
-
 
 export const dynamic = 'force-dynamic';
 
@@ -34,18 +30,22 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createSupabaseServerClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'json';
-    const dataTypes = searchParams.get('types')?.split(',') || ['profile', 'orders', 'activity'];
+    const dataTypes =
+      searchParams.get('types')?.split(',') || ['profile', 'orders', 'activity'];
 
     const exportData: Record<string, any> = {};
 
-    // Fetch profile data
     if (dataTypes.includes('profile')) {
       const { data: profile } = await supabase
         .from('student_profiles')
@@ -74,7 +74,6 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Fetch orders data
     if (dataTypes.includes('orders')) {
       const { data: orders } = await supabase
         .from('orders')
@@ -85,7 +84,6 @@ export async function GET(request: NextRequest) {
       exportData.orders = orders || [];
     }
 
-    // Fetch activity / transactions
     if (dataTypes.includes('activity')) {
       const { data: transactions } = await supabase
         .from('transactions')
@@ -106,7 +104,6 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // GDPR compliance metadata
     const gdprMetadata = {
       export_id: `export_${user.id}_${Date.now()}`,
       exported_at: new Date().toISOString(),
@@ -115,12 +112,14 @@ export async function GET(request: NextRequest) {
       data_controller: 'EdStop Platform, IIT Kharagpur',
       data_processor: 'EdStop Technology Services',
       legal_basis: 'Article 20 GDPR — Right to Data Portability',
-      retention_policy: 'Data is retained for 3 years after account closure per institutional policy',
+      retention_policy:
+        'Data is retained for 3 years after account closure per institutional policy',
       data_categories: dataTypes,
       format,
       schema_version: '1.0.0',
       contact: 'privacy@edstop.iitkgp.ac.in',
-      note: 'This export contains your personal data as stored by EdStop. You have the right to request deletion under GDPR Article 17.',
+      note:
+        'This export contains your personal data as stored by EdStop. You have the right to request deletion under GDPR Article 17.',
     };
 
     const fullExport = {
@@ -129,7 +128,6 @@ export async function GET(request: NextRequest) {
     };
 
     if (format === 'csv') {
-      // Flatten to CSV — one section per requested type
       const csvSections: string[] = [];
 
       csvSections.push('# GDPR DATA EXPORT');
@@ -145,7 +143,9 @@ export async function GET(request: NextRequest) {
         csvSections.push(Object.keys(authFields).join(','));
         csvSections.push(
           Object.values(authFields)
-            .map((v: any) => (v === null || v === undefined ? '' : `"${String(v).replace(/"/g, '""')}"`))
+            .map((v: any) =>
+              v === null || v === undefined ? '' : `"${String(v).replace(/"/g, '""')}"`
+            )
             .join(',')
         );
         csvSections.push('');
@@ -221,7 +221,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Default: JSON
     const jsonContent = JSON.stringify(fullExport, null, 2);
     const filename = `edstop-data-export-${new Date().toISOString().split('T')[0]}.json`;
 
