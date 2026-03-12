@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { createClient } from '@/lib/supabaseClient';
 
 interface CartItem {
@@ -38,6 +38,20 @@ const CheckoutModal = ({
   const [walletAmount, setWalletAmount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const idempotencyKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen && !idempotencyKeyRef.current) {
+      idempotencyKeyRef.current =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `checkout-${Date.now()}-${Math.random()}`;
+    }
+
+    if (!isOpen) {
+      idempotencyKeyRef.current = null;
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -109,12 +123,12 @@ const CheckoutModal = ({
           paymentMethod,
           walletAmount: safeWalletAmount,
           promoCode: null,
-          promoDiscount: 0
+          idempotencyKey: idempotencyKeyRef.current
         }),
 
       });
 
-      let data: any;
+      let data: { error?: string; orderId?: string } | null;
 
       try {
 
@@ -140,12 +154,14 @@ const CheckoutModal = ({
 
       window.location.href = `/orders/${data.orderId}`;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
 
       console.error('Checkout error:', error);
 
       setErrorMessage(
-        error?.message || 'Something went wrong. Please try again.'
+        error instanceof Error
+          ? error.message
+          : 'Something went wrong. Please try again.'
       );
 
     } finally {

@@ -1,13 +1,1 @@
-@import "tailwindcss";
-
-/* Tell Tailwind to use config */
-@config "../../tailwind.config.js";
-
-/* Your theme variables */
-:root {
-  --color-border: #27272a;
-  --color-input: #27272a;
-  --color-ring: #7c3aed;
-  --color-background: #0f0f12;
-  --color-foreground: #ffffff;
-}
+@import "../styles/tailwind.css";
