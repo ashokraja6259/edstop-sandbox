@@ -139,7 +139,7 @@ const OrderSuccessModal = ({
   if (!isOpen) return null;
 
   const isFood = orderType === 'food';
-  const trackingUrl = isFood ? `/orders/${orderId}` : '/order-history';
+  const trackingUrl = `/orders/${orderId}`;
   const gradientFrom = isFood ? 'from-orange-500' : 'from-purple-600';
   const gradientTo = isFood ? 'to-pink-500' : 'to-indigo-600';
   const glowColor = isFood ? 'shadow-orange-500/40' : 'shadow-purple-500/40';
