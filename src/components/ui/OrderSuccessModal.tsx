@@ -65,7 +65,6 @@ const OrderSuccessModal = ({
   const particleStateRef = useRef<Particle[]>([]);
   const [, forceUpdate] = useState(0);
 
-  const trackingUrl = `/student-dashboard?order=${orderId}`;
 
   useEffect(() => {
     if (!isOpen) {
@@ -140,6 +139,7 @@ const OrderSuccessModal = ({
   if (!isOpen) return null;
 
   const isFood = orderType === 'food';
+  const trackingUrl = `/orders/${orderId}`;
   const gradientFrom = isFood ? 'from-orange-500' : 'from-purple-600';
   const gradientTo = isFood ? 'to-pink-500' : 'to-indigo-600';
   const glowColor = isFood ? 'shadow-orange-500/40' : 'shadow-purple-500/40';
