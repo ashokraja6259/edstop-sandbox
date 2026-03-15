@@ -6,7 +6,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 let supabaseClient: SupabaseClient | null = null
 
 export function createClient(): SupabaseClient {
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -17,15 +16,22 @@ export function createClient(): SupabaseClient {
   }
 
   if (!supabaseClient) {
-
     supabaseClient = createBrowserClient(url, key)
-
   }
 
   return supabaseClient
-
 }
 
-/* optional direct export (used in some components) */
-
-export const supabase = createClient()
+/**
+ * Lazy compatibility export.
+ *
+ * This keeps existing `import { supabase }` callsites working without
+ * eagerly creating the browser client during module evaluation.
+ */
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop, receiver) {
+    const client = createClient() as any
+    const value = Reflect.get(client, prop, receiver)
+    return typeof value === 'function' ? value.bind(client) : value
+  },
+})

@@ -76,7 +76,8 @@ const StudentDashboardInteractive = () => {
   const [greeting, setGreeting] = useState('');
   const [isOffline, setIsOffline] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const { user, signOut } = useAuth();
+  const [authBootTimeout, setAuthBootTimeout] = useState(false);
+  const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const toast = useToast();
 
@@ -94,6 +95,18 @@ const StudentDashboardInteractive = () => {
       setIsOffline(false);
     },
   });
+
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [loading, user, router]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setAuthBootTimeout(true), 8000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -223,14 +236,46 @@ const StudentDashboardInteractive = () => {
     { label: 'Active Orders', value: String(activeOrders.length), icon: 'TruckIcon', color: 'warning' },
   ];
 
-  if (!isHydrated) {
+  if (!isHydrated || loading) {
     return (
       <div className="min-h-screen gradient-mesh">
         <div className="container mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-16 bg-white/5 rounded-2xl"></div>
-            <div className="h-48 bg-white/5 rounded-3xl"></div>
-            <div className="h-64 bg-white/5 rounded-2xl"></div>
+          {authBootTimeout ? (
+            <div className="max-w-lg rounded-2xl glass-card p-6 text-center">
+              <h2 className="text-lg font-semibold text-white">Still loading your dashboard…</h2>
+              <p className="mt-2 text-sm text-white/70">If this takes too long, go to login and try again.</p>
+              <button
+                onClick={() => router.replace('/login')}
+                className="mt-4 inline-flex items-center rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
+              >
+                Go to Login
+              </button>
+            </div>
+          ) : (
+            <div className="animate-pulse space-y-6">
+              <div className="h-16 bg-white/5 rounded-2xl"></div>
+              <div className="h-48 bg-white/5 rounded-3xl"></div>
+              <div className="h-64 bg-white/5 rounded-2xl"></div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen gradient-mesh">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-lg rounded-2xl glass-card p-6 text-center">
+            <h2 className="text-lg font-semibold text-white">You are not logged in</h2>
+            <p className="mt-2 text-sm text-white/70">Please sign in to view your dashboard.</p>
+            <button
+              onClick={() => router.replace('/login')}
+              className="mt-4 inline-flex items-center rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
+            >
+              Go to Login
+            </button>
           </div>
         </div>
       </div>

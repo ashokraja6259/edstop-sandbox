@@ -1,11 +1,55 @@
 // FILE: src/app/api/promo-alerts/check/route.ts
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { SupabaseClient } from '@supabase/supabase-js';
 
-export async function POST(req: NextRequest) {
+interface PromoCode {
+  id: string;
+  code: string;
+  usage_limit: number | null;
+  used_count: number;
+  expires_at: string | null;
+  discount_type: 'flat' | 'percentage';
+  discount_value: number;
+  min_order_amount: number | null;
+}
+
+interface PromoAlertThresholds {
+  redemption_cap_pct: number;
+  expiry_days_before: number;
+  roi_target_pct: number;
+  alert_emails: string[] | null;
+}
+
+export async function POST() {
   try {
     const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || profile?.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
 
     const { data: promoCodes, error: promoError } = await supabase
       .from('promo_codes')
@@ -17,7 +61,7 @@ export async function POST(req: NextRequest) {
       .from('promo_alert_thresholds')
       .select('*')
       .limit(1)
-      .single();
+      .single<PromoAlertThresholds>();
 
     if (thresholdError || !thresholds) {
       return NextResponse.json(
@@ -36,7 +80,7 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const triggered: string[] = [];
 
-    for (const promo of promoCodes || []) {
+    for (const promo of (promoCodes || []) as PromoCode[]) {
       // ================= REDEMPTION CAP =================
       if (promo.usage_limit && promo.used_count > 0) {
         const pct = (promo.used_count / promo.usage_limit) * 100;
@@ -175,10 +219,12 @@ export async function POST(req: NextRequest) {
       count: triggered.length,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Promo alert error:', error);
+    const message =
+      error instanceof Error ? error.message : 'Server error';
     return NextResponse.json(
-      { error: error?.message || 'Server error' },
+      { error: message },
       { status: 500 }
     );
   }
@@ -187,7 +233,7 @@ export async function POST(req: NextRequest) {
 // ================= HELPERS =================
 
 async function recentlyAlerted(
-  supabase: any,
+  supabase: SupabaseClient,
   promoId: string,
   type: string
 ) {
@@ -202,14 +248,14 @@ async function recentlyAlerted(
     )
     .limit(1);
 
-  return data && data.length > 0;
+  return Boolean(data && data.length > 0);
 }
 
 async function logAlert(
-  supabase: any,
-  promo: any,
+  supabase: SupabaseClient,
+  promo: Pick<PromoCode, 'id' | 'code'>,
   type: string,
-  details: any
+  details: Record<string, unknown>
 ) {
   await supabase.from('promo_alert_logs').insert({
     promo_code_id: promo.id,
@@ -222,11 +268,17 @@ async function logAlert(
 async function triggerAlert(payload: {
   alertType: string;
   promoCode: string;
-  details: Record<string, any>;
+  details: Record<string, unknown>;
   adminEmails: string[];
 }) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+    );
+  }
 
   const res = await fetch(
     `${supabaseUrl}/functions/v1/send-promo-alert`,
