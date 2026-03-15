@@ -112,8 +112,15 @@ export default function LoginPage() {
     setError('');
     setSuccess('');
 
-    if (!phone) {
+    const normalizedPhone = phone.trim().replace(/\s+/g, '');
+
+    if (!normalizedPhone) {
       setError('Please enter your phone number.');
+      return;
+    }
+
+    if (!/^\+\d{10,15}$/.test(normalizedPhone)) {
+      setError('Enter a valid phone number in international format, e.g. +919876543210.');
       return;
     }
 
@@ -121,18 +128,21 @@ export default function LoginPage() {
       setLoading(true);
 
       if (!otpSent) {
-        await signInWithPhoneOtp(phone);
+        await signInWithPhoneOtp(normalizedPhone);
+        setPhone(normalizedPhone);
         setOtpSent(true);
         setSuccess('OTP sent to your phone number.');
         return;
       }
 
-      if (!otp) {
+      const trimmedOtp = otp.trim();
+
+      if (!trimmedOtp) {
         setError('Please enter the OTP.');
         return;
       }
 
-      await verifyPhoneOtp(phone, otp);
+      await verifyPhoneOtp(normalizedPhone, trimmedOtp);
       window.location.assign('/student-dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Phone OTP login failed.');
