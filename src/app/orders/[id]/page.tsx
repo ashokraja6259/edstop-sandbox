@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }> | { id: string };
 }
 
 interface OrderItem {
@@ -17,6 +17,7 @@ interface OrderItem {
 }
 
 export default async function OrderDetailsPage({ params }: Props) {
+  const { id } = await Promise.resolve(params);
   const supabase = await createClient();
 
   const {
@@ -31,8 +32,8 @@ export default async function OrderDetailsPage({ params }: Props) {
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select('id, order_number, status, total_amount, final_amount, payment_method, created_at')
-    .eq('id', params.id)
     .eq('user_id', user.id)
+    .or(`id.eq.${id},order_number.eq.${id}`)
     .single();
 
   if (orderError || !order) {

@@ -8,44 +8,58 @@ export default async function HomePage() {
   } = await supabase.auth.getUser();
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-16">
-      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 shadow-xl sm:p-12">
-        <h1 className="text-3xl font-bold text-gray-900">Welcome to EdStop</h1>
-        <p className="mt-3 text-gray-600">
-          Campus super app for food, essentials, and student services at IIT Kharagpur.
-        </p>
+    <main className="min-h-screen gradient-mesh px-4 py-16 text-white">
+      <div className="mx-auto max-w-6xl">
+        <section className="rounded-3xl glass-card p-8 sm:p-12">
+          <p className="inline-flex rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/80">
+            IIT Kharagpur Campus Commerce
+          </p>
 
-        <div className="mt-8 flex flex-wrap gap-3">
-          {user ? (
+          <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+            EdStop: one app for food, essentials, and campus life.
+          </h1>
+
+          <p className="mt-4 max-w-2xl text-sm text-white/70 sm:text-base">
+            Order from campus restaurants, shop from the Dark Store, and track everything in one place.
+            Built for IIT students with fast delivery and clear order visibility.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="/student-dashboard"
-              className="inline-flex items-center rounded-lg bg-indigo-600 px-5 py-3 text-sm font-medium text-white hover:bg-indigo-700"
+              href={user ? '/student-dashboard' : '/login'}
+              className="inline-flex items-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-900 hover:bg-white/90"
             >
-              Go to Dashboard
+              {user ? 'Go to Dashboard' : 'Sign In'}
             </Link>
-          ) : (
             <Link
-              href="/login"
-              className="inline-flex items-center rounded-lg bg-indigo-600 px-5 py-3 text-sm font-medium text-white hover:bg-indigo-700"
+              href="/food-ordering-interface"
+              className="inline-flex items-center rounded-lg border border-white/25 px-5 py-3 text-sm font-medium text-white hover:bg-white/10"
             >
-              Sign In
+              Food Ordering
             </Link>
-          )}
+            <Link
+              href="/dark-store-shopping"
+              className="inline-flex items-center rounded-lg border border-white/25 px-5 py-3 text-sm font-medium text-white hover:bg-white/10"
+            >
+              Dark Store
+            </Link>
+          </div>
+        </section>
 
-          <Link
-            href="/food-ordering-interface"
-            className="inline-flex items-center rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Browse Food Ordering
-          </Link>
-
-          <Link
-            href="/dark-store-shopping"
-            className="inline-flex items-center rounded-lg border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Open Dark Store
-          </Link>
-        </div>
+        <section className="mt-8 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl glass p-5">
+            <h2 className="text-sm font-semibold">Fast Delivery</h2>
+            <p className="mt-2 text-xs text-white/70">Campus-first delivery flow optimized for hostels and departments.</p>
+          </div>
+          <div className="rounded-2xl glass p-5">
+            <h2 className="text-sm font-semibold">Secure Checkout</h2>
+            <p className="mt-2 text-xs text-white/70">Server-validated ordering and payment verification on critical paths.</p>
+          </div>
+          <div className="rounded-2xl glass p-5">
+            <h2 className="text-sm font-semibold">Live Tracking</h2>
+            <p className="mt-2 text-xs text-white/70">Track your orders and return to dashboard without losing context.</p>
+          </div>
+        </section>
       </div>
     </main>
   );

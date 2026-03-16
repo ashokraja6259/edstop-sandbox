@@ -145,7 +145,12 @@ export default function LoginPage() {
       await verifyPhoneOtp(normalizedPhone, trimmedOtp);
       window.location.assign('/student-dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Phone OTP login failed.');
+      const message = err instanceof Error ? err.message : 'Phone OTP login failed.';
+      if (message.toLowerCase().includes('database error saving new user')) {
+        setError('Phone OTP is enabled, but signup failed in backend profile setup. Please contact support or use email login until backend auth trigger is updated.');
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
