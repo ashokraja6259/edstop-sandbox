@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,8 +19,7 @@ export async function createClient() {
           try {
             cookieStore.set({ name, value, ...options })
           } catch {
-            // In some contexts (like static rendering),
-            // cookies() is read-only. Safe to ignore.
+            // In some contexts (like Server Components), cookies may be read-only.
           }
         },
 
@@ -28,7 +27,7 @@ export async function createClient() {
           try {
             cookieStore.set({ name, value: '', ...options })
           } catch {
-            // Ignore if cookies cannot be modified
+            // Ignore if cookies cannot be modified here.
           }
         },
       },

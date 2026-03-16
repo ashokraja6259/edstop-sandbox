@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 interface OrderItem {
@@ -17,6 +17,7 @@ interface OrderItem {
 }
 
 export default async function OrderDetailsPage({ params }: Props) {
+  const { id } = await params;
   const supabase = await createClient();
 
   const {
@@ -31,8 +32,8 @@ export default async function OrderDetailsPage({ params }: Props) {
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select('id, order_number, status, total_amount, final_amount, payment_method, created_at')
-    .eq('id', params.id)
     .eq('user_id', user.id)
+    .or(`id.eq.${id},order_number.eq.${id}`)
     .single();
 
   if (orderError || !order) {
@@ -44,10 +45,16 @@ export default async function OrderDetailsPage({ params }: Props) {
             This order does not exist, or you do not have permission to view it.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Link href="/food-ordering-interface" className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+            <Link
+              href="/food-ordering-interface"
+              className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
               Continue Ordering
             </Link>
-            <Link href="/student-dashboard" className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+            <Link
+              href="/student-dashboard"
+              className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
               Back to Dashboard
             </Link>
           </div>
@@ -107,9 +114,13 @@ export default async function OrderDetailsPage({ params }: Props) {
                 >
                   <div>
                     <p className="font-medium text-slate-900">{item.item_name}</p>
-                    <p className="text-xs text-slate-500">Qty: {item.quantity} × ₹{Number(item.price).toFixed(2)}</p>
+                    <p className="text-xs text-slate-500">
+                      Qty: {item.quantity} × ₹{Number(item.price).toFixed(2)}
+                    </p>
                   </div>
-                  <p className="font-semibold text-slate-900">₹{Number(item.total_price).toFixed(2)}</p>
+                  <p className="font-semibold text-slate-900">
+                    ₹{Number(item.total_price).toFixed(2)}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -119,10 +130,16 @@ export default async function OrderDetailsPage({ params }: Props) {
         <div className="mt-6 border-t border-slate-200 pt-5">
           <h2 className="font-semibold text-slate-900">What next?</h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link href="/food-ordering-interface" className="inline-flex items-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+            <Link
+              href="/food-ordering-interface"
+              className="inline-flex items-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+            >
               Continue Ordering
             </Link>
-            <Link href="/student-dashboard" className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+            <Link
+              href="/student-dashboard"
+              className="inline-flex items-center rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
               Back to Dashboard
             </Link>
           </div>
