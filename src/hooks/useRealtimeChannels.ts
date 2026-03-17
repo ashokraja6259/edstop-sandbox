@@ -11,9 +11,11 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface LiveTransaction {
   id: string;
+  user_id: string;
   type: 'credit' | 'debit';
   amount: number;
   description: string;
+  created_at: string;
   date: string;
   status: 'completed' | 'pending' | 'expired';
 }
@@ -52,6 +54,7 @@ interface OrderRow {
 
 interface TransactionRow {
   id: string;
+  user_id: string;
   transaction_type: 'credit' | 'debit' | 'refund';
   amount: number;
   description?: string;
@@ -145,7 +148,7 @@ export function useRealtimeChannels(
       const { data: transactions } = await supabase
         .from('transactions')
         .select(
-          'id, transaction_type, amount, description, status, created_at'
+          'id, user_id, transaction_type, amount, description, status, created_at'
         )
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
@@ -158,7 +161,7 @@ export function useRealtimeChannels(
       }
 
       if (orders) {
-        const mapped = orders.map((o: OrderRow) => ({
+        const mapped: LiveOrder[] = orders.map((o: OrderRow) => ({
           id: o.id,
           serviceName:
             o.order_type === 'food'
@@ -190,11 +193,13 @@ export function useRealtimeChannels(
       }
 
       if (transactions) {
-        const mapped = transactions.map((t: TransactionRow) => ({
+        const mapped: LiveTransaction[] = transactions.map((t: TransactionRow) => ({
           id: t.id,
+          user_id: t.user_id,
           type: t.transaction_type === 'debit' ? 'debit' : 'credit',
           amount: Number(t.amount),
           description: t.description || 'Transaction',
+          created_at: t.created_at,
           date: formatDate(t.created_at),
           status:
             t.status === 'completed' || t.status === 'pending'

@@ -438,8 +438,7 @@ const FoodOrderingInteractive = () => {
                     image: item.image_url || '',
                     alt: item.name,
                     isVeg: item.is_veg,
-                    customizable: false,
-                    category: item.category
+                    customizable: false
                   }}
                   onAddToCart={handleAddToCart}
                   cartQuantity={
