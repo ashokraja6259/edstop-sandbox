@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+
+    // Requested legacy/archive ignores:
+    "app_backup/**",
+    "app_legacy/**",
+    "archive/**",
+
+    // Explicit dependency/build ignores:
+    "node_modules/**",
   ]),
 ]);
 

@@ -99,17 +99,17 @@ function mapOrder(row: DBOrder): LiveOrder {
   const payment =
     PAYMENT_MAP[row.payment_method?.toLowerCase() || ''] || 'UPI';
 
-  const items =
-    Array.isArray(row.items) &&
-    row.items.map(i => ({
-      id: i.id,
-      name: i.name,
-      quantity: i.quantity,
-      price: i.price,
-    }));
+  const items: OrderItem[] = Array.isArray(row.items)
+    ? row.items.map((i: OrderItem) => ({
+        id: i.id,
+        name: i.name,
+        quantity: i.quantity,
+        price: i.price,
+      }))
+    : [];
 
   const subtotal =
-    items?.reduce((s, i) => s + i.price * i.quantity, 0) ||
+    items.reduce((sum: number, item: OrderItem) => sum + item.price * item.quantity, 0) ||
     Number(row.total_amount) ||
     0;
 
@@ -124,7 +124,7 @@ function mapOrder(row: DBOrder): LiveOrder {
         : 'Restaurant'),
     date,
     time,
-    items: items || [],
+    items,
     subtotal,
     deliveryFee: Number(row.delivery_fee) || 0,
     discount: Number(row.discount_amount) || 0,

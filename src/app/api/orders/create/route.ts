@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createOrder } from "@/lib/services/orderService";
 
+interface CreateOrderCartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 interface CreateOrderRequestBody {
   cartItems: Array<{
     id: string;
@@ -89,6 +96,29 @@ export async function POST(req: Request) {
       );
     }
 
+    const normalizedCartItems: CreateOrderCartItem[] = cartItems.map((item) => ({
+      id: item.id,
+      name: typeof item.name === "string" ? item.name : "",
+      price: Number(item.price),
+      quantity: Number(item.quantity),
+    }));
+
+    if (
+      normalizedCartItems.some((item) =>
+        !item.id ||
+        !item.name ||
+        !Number.isFinite(item.price) ||
+        item.price < 0 ||
+        !Number.isInteger(item.quantity) ||
+        item.quantity <= 0
+      )
+    ) {
+      return NextResponse.json(
+        { error: "Invalid cart items" },
+        { status: 400 }
+      );
+    }
+
     const safeWalletAmount = Math.max(
       0,
       Number(walletAmount) || 0
@@ -109,7 +139,7 @@ export async function POST(req: Request) {
 
     const order = await createOrder(supabase, {
       userId: user.id,
-      cartItems,
+      cartItems: normalizedCartItems,
       restaurantId,
       paymentMethod,
       walletAmount: safeWalletAmount,

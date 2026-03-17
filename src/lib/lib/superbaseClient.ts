@@ -8,5 +8,5 @@
  * Do NOT create new Supabase instances here.
  */
 
-export { supabase } from './supabaseClient';
-export { createClient } from './supabaseClient';
+export { supabase } from '../supabaseClient';
+export { createClient } from '../supabaseClient';
