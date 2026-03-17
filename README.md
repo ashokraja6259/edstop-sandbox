@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EdStop Sandbox
 
-## Getting Started
+EdStop Sandbox is a Next.js + Supabase codebase for the EdStop campus super-app initiative.
 
-First, run the development server:
+Current active application path is:
+- `src/app` (App Router)
+
+Legacy app code has been isolated under:
+- `archive/legacy/`
+
+---
+
+## Tech Stack
+
+- Next.js 14 (App Router)
+- React 18
+- TypeScript
+- Tailwind CSS 4
+- Supabase
+
+---
+
+## Project Structure
+
+- `src/app` – active routes/pages
+- `src/components` – reusable UI and feature components
+- `src/contexts` – React context providers
+- `src/hooks` – custom hooks
+- `src/lib` – application libraries/services
+- `supabase/migrations` – database migrations
+- `supabase/functions` – Supabase edge/server functions
+- `archive/legacy` – isolated legacy/backup code (non-active)
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in values:
+
+```bash
+cp .env.example .env.local
+```
+
+Required variables:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+- `NEXT_PUBLIC_RAZORPAY_KEY_ID`
+
+Optional:
+
+- `DIST_DIR` (custom Next.js build output directory; defaults to `.next`)
+
+---
+
+## Local Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open:
+- http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Validation Commands
 
-## Learn More
+Lint:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run lint
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Typecheck:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run typecheck
+```
 
-## Deploy on Vercel
+Production build:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run build
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Run production server after build:
+
+```bash
+npm run start
+```
+
+---
+
+## Deployment Notes
+
+- Ensure all required environment variables are configured in the deployment platform.
+- `NEXT_PUBLIC_*` values must be available at build/runtime for client usage.
+- Keep Supabase service role key server-side only.
+- Run migrations in `supabase/migrations` before production rollout.
+- Use `npm run lint`, `npm run typecheck`, and `npm run build` as required pre-deploy gates.
+
+---
+
+## Repository Cleanup Policy (Current)
+
+- Active app/config files remain at repository root + `src/`.
+- Legacy code is isolated in `archive/legacy/` and should not be used for new development.
+- Feature work should target only active paths unless explicitly migrating legacy assets.
