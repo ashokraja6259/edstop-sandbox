@@ -3,6 +3,22 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+const studentRoutePrefixes = [
+  '/dashboard',
+  '/student-dashboard',
+  '/food',
+  '/food-ordering-interface',
+  '/store',
+  '/dark-store-shopping',
+  '/wallet',
+  '/ai',
+  '/ai-companion-interface',
+  '/order-history',
+  '/orders',
+  '/student-profile',
+  '/promotions',
+];
+
 const adminRoutePrefixes = [
   '/admin',
   '/admin-promo-code-management',
@@ -25,6 +41,10 @@ function getRequiredRole(pathname: string) {
 
   if (vendorRoutePrefixes.some((route) => pathname.startsWith(route))) {
     return 'vendor' as const;
+  }
+
+  if (studentRoutePrefixes.some((route) => pathname.startsWith(route))) {
+    return 'student' as const;
   }
 
   return null;
@@ -61,41 +81,19 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const requiredRole = getRequiredRole(pathname);
 
-  const protectedRoutes = [
-    '/dashboard',
-    '/student-dashboard',
-    '/food',
-    '/store',
-    '/wallet',
-    '/ai',
-    '/rider',
-    '/rider-dashboard',
-    '/admin',
-    '/admin-promo-code-management',
-    '/promotions-analytics-dashboard',
-    '/promo-code-templates-management',
-    '/template-review-queue',
-    '/vendor',
-    '/order-history',
-  ];
-
-  const isProtected = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
-  );
-
-  // If not logged in → redirect to login
-  if (!user && isProtected) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  // If logged in and visiting login → redirect
+  // Authenticated users should not stay on login page.
   if (user && pathname === '/login') {
     return NextResponse.redirect(new URL('/student-dashboard', request.url));
   }
 
-  const requiredRole = getRequiredRole(pathname);
+  // Unauthenticated users cannot access protected routes.
+  if (!user && requiredRole) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
+  // Enforce role-based route access.
   if (user && requiredRole) {
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -103,7 +101,7 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle();
 
-    const userRole = profile?.role || 'student';
+    const userRole = (profile?.role || 'student') as 'student' | 'admin' | 'rider' | 'vendor';
 
     if (userRole !== requiredRole) {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
@@ -118,9 +116,18 @@ export const config = {
     '/dashboard/:path*',
     '/student-dashboard/:path*',
     '/food/:path*',
+    '/food-ordering-interface/:path*',
     '/store/:path*',
+    '/dark-store-shopping/:path*',
     '/wallet/:path*',
     '/ai/:path*',
+    '/ai-companion-interface/:path*',
+    '/order-history/:path*',
+    '/orders/:path*',
+    '/student-profile/:path*',
+    '/promotions/:path*',
+    '/login',
+    '/login/:path*',
     '/rider/:path*',
     '/rider-dashboard/:path*',
     '/admin/:path*',
@@ -129,6 +136,5 @@ export const config = {
     '/promo-code-templates-management/:path*',
     '/template-review-queue/:path*',
     '/vendor/:path*',
-    '/order-history/:path*',
   ],
 };
