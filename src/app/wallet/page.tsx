@@ -2,35 +2,22 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorFallback from '@/components/ui/ErrorFallback';
 import { useRetry } from '@/hooks/useRetry';
 import { useToast } from '@/contexts/ToastContext';
-
-interface Transaction {
-  id: string;
-  type: 'credit' | 'debit';
-  amount: number;
-  description: string;
-  date: string;
-  status: 'completed' | 'pending' | 'failed';
-}
+import { useAuth } from '@/contexts/AuthContext';
+import { useWalletData } from '@/hooks/useWalletData';
 
 export default function WalletPage() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
-  const [balance] = useState(1250.50);
-  const [transactions] = useState<Transaction[]>([
-    { id: 'txn001', type: 'credit', amount: 25.00, description: 'Cashback from Food Order', date: '23/02/2026', status: 'completed' },
-    { id: 'txn002', type: 'debit', amount: 150.00, description: 'Dark Store Purchase', date: '22/02/2026', status: 'completed' },
-    { id: 'txn003', type: 'credit', amount: 500.00, description: 'Wallet Recharge', date: '20/02/2026', status: 'completed' },
-    { id: 'txn004', type: 'debit', amount: 220.00, description: 'Food Order - Spice Garden', date: '19/02/2026', status: 'completed' },
-    { id: 'txn005', type: 'credit', amount: 11.00, description: 'Cashback from Dark Store', date: '18/02/2026', status: 'completed' },
-  ]);
+  const { user } = useAuth();
+  const { walletBalance, transactions, isLoading } = useWalletData(user?.id);
 
   const { retry, manualRetry, reset, isRetrying, retryCount, nextRetryIn, maxRetriesReached } = useRetry({
     maxRetries: 3,
@@ -62,6 +49,19 @@ export default function WalletPage() {
     window.addEventListener('offline', handleOffline);
     return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
   }, [retry, reset]);
+
+
+
+  const balance = Math.max(0, walletBalance);
+
+  const uiTransactions = useMemo(
+    () =>
+      transactions.map((txn) => ({
+        ...txn,
+        date: new Date(txn.created_at).toLocaleDateString('en-IN'),
+      })),
+    [transactions]
+  );
 
   if (!isHydrated) {
     return (
@@ -138,7 +138,8 @@ export default function WalletPage() {
         {!hasError && (
           <div className="glass-neon rounded-2xl p-5 border border-primary/20 animate-slide-up" style={{animationDelay: '0.1s'}}>
             <h2 className="font-heading font-bold text-base text-foreground mb-4">Recent Transactions</h2>
-            {transactions.length === 0 ? (
+            {isLoading && <p className="text-xs text-text-secondary mb-3">Syncing wallet data…</p>}
+            {uiTransactions.length === 0 ? (
               <EmptyState
                 icon="📋"
                 title="No transactions yet"
@@ -147,7 +148,7 @@ export default function WalletPage() {
               />
             ) : (
               <div className="space-y-3">
-                {transactions.map((txn) => (
+                {uiTransactions.map((txn) => (
                   <div key={txn.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${

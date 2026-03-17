@@ -170,9 +170,9 @@ const StudentDashboardInteractive = () => {
   const cashbackEarned = liveCashback > 0 ? liveCashback : 62.75;
 
   const recentTransactions = liveTransactions.length > 0 ? liveTransactions : [
-    { id: 'txn001', type: 'credit' as const, amount: 25.00, description: 'Cashback from Food Order', date: '23/02/2026', status: 'completed' as const },
-    { id: 'txn002', type: 'debit' as const, amount: 150.00, description: 'Dark Store Purchase', date: '22/02/2026', status: 'completed' as const },
-    { id: 'txn003', type: 'credit' as const, amount: 500.00, description: 'Wallet Recharge', date: '20/02/2026', status: 'completed' as const },
+    { id: 'txn001', user_id: user?.id ?? 'local-user', type: 'credit' as const, amount: 25.00, description: 'Cashback from Food Order', created_at: '2026-02-23T00:00:00.000Z', date: '23/02/2026', status: 'completed' as const },
+    { id: 'txn002', user_id: user?.id ?? 'local-user', type: 'debit' as const, amount: 150.00, description: 'Dark Store Purchase', created_at: '2026-02-22T00:00:00.000Z', date: '22/02/2026', status: 'completed' as const },
+    { id: 'txn003', user_id: user?.id ?? 'local-user', type: 'credit' as const, amount: 500.00, description: 'Wallet Recharge', created_at: '2026-02-20T00:00:00.000Z', date: '20/02/2026', status: 'completed' as const },
   ];
 
   const services: Service[] = [
