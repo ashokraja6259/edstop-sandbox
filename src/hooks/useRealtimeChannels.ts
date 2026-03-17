@@ -158,7 +158,7 @@ export function useRealtimeChannels(
       }
 
       if (orders) {
-        const mapped = orders.map((o: OrderRow) => ({
+        const mapped: LiveOrder[] = orders.map((o: OrderRow) => ({
           id: o.id,
           serviceName:
             o.order_type === 'food'
@@ -190,7 +190,7 @@ export function useRealtimeChannels(
       }
 
       if (transactions) {
-        const mapped = transactions.map((t: TransactionRow) => ({
+        const mapped: LiveTransaction[] = transactions.map((t: TransactionRow) => ({
           id: t.id,
           type: t.transaction_type === 'debit' ? 'debit' : 'credit',
           amount: Number(t.amount),
