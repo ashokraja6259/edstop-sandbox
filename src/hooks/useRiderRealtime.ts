@@ -76,10 +76,17 @@ interface DBOrder {
   delivery_instructions?: string;
   estimated_delivery_time?: string;
   restaurant_name?: string;
-  items?: any[];
+  items?: DBOrderItem[];
   notes?: string;
   created_at: string;
   rider_id?: string;
+}
+
+interface DBOrderItem {
+  id?: string;
+  name: string;
+  quantity: number;
+  price: number;
 }
 
 /* ───────────────────────────────────────────────────────────── */
@@ -126,7 +133,7 @@ const dbToRider = (o: DBOrder): RiderOrder => ({
   deliveryAddress: o.delivery_address || 'Campus Address',
   landmark: '',
   items: Array.isArray(o.items)
-    ? o.items.map((item: any, i: number) => ({
+    ? o.items.map((item, i) => ({
         id: item.id || String(i),
         name: item.name,
         quantity: item.quantity,

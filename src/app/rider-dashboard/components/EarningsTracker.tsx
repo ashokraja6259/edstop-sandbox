@@ -35,7 +35,7 @@ const EarningsTracker = ({
             </div>
             <div>
               <span className="font-caption text-xs text-success/80 block mb-0.5 uppercase tracking-wider">
-                Today's Earnings
+                Today&apos;s Earnings
               </span>
               <span className="font-data text-3xl font-bold text-gradient-green">
                 ₹{totalEarnings.toFixed(2)}

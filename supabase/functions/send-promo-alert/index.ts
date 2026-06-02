@@ -74,7 +74,7 @@ serve(async (req) => {
   }
 });
 
-function buildEmailHtml(alertType: string, promoCode: string, details: Record<string, any>): string {
+function buildEmailHtml(alertType: string, promoCode: string, details: Record<string, unknown>): string {
   const alertConfigs: Record<string, { color: string; icon: string; title: string; message: string }> = {
     redemption_cap: {
       color: "#f59e0b",

@@ -66,6 +66,12 @@ interface Order {
   refundAmount?: number;
 }
 
+interface OrderAnalytics {
+  total_spent?: number;
+  food_orders?: number;
+  store_orders?: number;
+}
+
 /* ================= MOCK DATA ================= */
 
 const mockOrders: Order[] = [];
@@ -78,7 +84,7 @@ export default function OrderHistoryPage() {
   const { liveOrders, isLive, isLoading, hasLiveData } = useOrderHistoryRealtime();
 
   const [orders, setOrders] = useState<Order[]>(mockOrders);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [analytics, setAnalytics] = useState<OrderAnalytics | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
   /* ================= HYDRATION ================= */

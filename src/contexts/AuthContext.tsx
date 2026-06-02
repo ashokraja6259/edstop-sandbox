@@ -11,17 +11,23 @@ import {
   useRef,
 } from 'react';
 import { createClient } from '@/lib/supabaseClient';
-import type { Session, User } from '@supabase/supabase-js';
+import type {
+  AuthResponse,
+  AuthTokenResponsePassword,
+  OAuthResponse,
+  Session,
+  User,
+} from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   userRole: string | null;
-  signUp: (email: string, password: string) => Promise<any>;
-  signIn: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string) => Promise<AuthResponse>;
+  signIn: (email: string, password: string) => Promise<AuthTokenResponsePassword>;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<any>;
+  signInWithGoogle: () => Promise<OAuthResponse>;
   resetPassword: (email: string) => Promise<void>;
   signInWithPhoneOtp: (phone: string) => Promise<void>;
   verifyPhoneOtp: (phone: string, token: string) => Promise<void>;

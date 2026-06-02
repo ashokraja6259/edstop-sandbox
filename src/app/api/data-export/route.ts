@@ -6,6 +6,21 @@ import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
+type ExportRecord = Record<string, unknown>;
+
+interface ExportData {
+  profile?: {
+    auth: ExportRecord;
+    student_profile: unknown;
+    user_profile: unknown;
+  };
+  orders?: ExportRecord[];
+  activity?: {
+    transactions: ExportRecord[];
+    audit_logs: ExportRecord[];
+  };
+}
+
 function createSupabaseServerClient() {
   const cookieStore = cookies();
   return createServerClient(
@@ -44,7 +59,7 @@ export async function GET(request: NextRequest) {
     const dataTypes =
       searchParams.get('types')?.split(',') || ['profile', 'orders', 'activity'];
 
-    const exportData: Record<string, any> = {};
+    const exportData: ExportData = {};
 
     if (dataTypes.includes('profile')) {
       const { data: profile } = await supabase
@@ -143,7 +158,7 @@ export async function GET(request: NextRequest) {
         csvSections.push(Object.keys(authFields).join(','));
         csvSections.push(
           Object.values(authFields)
-            .map((v: any) =>
+            .map((v: unknown) =>
               v === null || v === undefined ? '' : `"${String(v).replace(/"/g, '""')}"`
             )
             .join(',')
@@ -155,7 +170,7 @@ export async function GET(request: NextRequest) {
         csvSections.push('## ORDERS DATA');
         const orderKeys = Object.keys(exportData.orders[0]);
         csvSections.push(orderKeys.join(','));
-        exportData.orders.forEach((order: any) => {
+        exportData.orders.forEach((order) => {
           csvSections.push(
             orderKeys
               .map((k) => {
@@ -170,11 +185,12 @@ export async function GET(request: NextRequest) {
         csvSections.push('');
       }
 
-      if (exportData.activity?.transactions?.length > 0) {
+      const transactions = exportData.activity?.transactions;
+      if (transactions && transactions.length > 0) {
         csvSections.push('## TRANSACTIONS DATA');
-        const txKeys = Object.keys(exportData.activity.transactions[0]);
+        const txKeys = Object.keys(transactions[0]);
         csvSections.push(txKeys.join(','));
-        exportData.activity.transactions.forEach((tx: any) => {
+        transactions.forEach((tx) => {
           csvSections.push(
             txKeys
               .map((k) => {
@@ -189,11 +205,12 @@ export async function GET(request: NextRequest) {
         csvSections.push('');
       }
 
-      if (exportData.activity?.audit_logs?.length > 0) {
+      const auditLogs = exportData.activity?.audit_logs;
+      if (auditLogs && auditLogs.length > 0) {
         csvSections.push('## ACTIVITY LOG');
-        const logKeys = Object.keys(exportData.activity.audit_logs[0]);
+        const logKeys = Object.keys(auditLogs[0]);
         csvSections.push(logKeys.join(','));
-        exportData.activity.audit_logs.forEach((log: any) => {
+        auditLogs.forEach((log) => {
           csvSections.push(
             logKeys
               .map((k) => {
@@ -233,10 +250,14 @@ export async function GET(request: NextRequest) {
         'X-Export-ID': gdprMetadata.export_id,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Data export error:', error);
+    const errorMessage =
+      typeof error === 'object' && error !== null && 'message' in error
+        ? error.message
+        : undefined;
     return NextResponse.json(
-      { error: 'Failed to generate export', details: error.message },
+      { error: 'Failed to generate export', details: errorMessage },
       { status: 500 }
     );
   }

@@ -650,7 +650,7 @@ function AISuggestionWidget({ templates, onSelectTemplate }: AISuggestionWidgetP
                 <div className="space-y-2">
                   {activeEvents.map(event => (
                     <div key={event.id} className={`flex items-start gap-3 p-3 rounded-lg border ${eventTypeColor[event.type]}`}>
-                      <Icon name={event.icon as any} size={15} className="mt-0.5 flex-shrink-0" />
+                      <Icon name={event.icon} size={15} className="mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="text-xs font-semibold">{event.name}</p>
@@ -673,7 +673,7 @@ function AISuggestionWidget({ templates, onSelectTemplate }: AISuggestionWidgetP
                 <div className="space-y-2">
                   {upcomingEvents.map(event => (
                     <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
-                      <Icon name={event.icon as any} size={15} className="text-gray-500 mt-0.5 flex-shrink-0" />
+                      <Icon name={event.icon} size={15} className="text-gray-500 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="text-xs font-semibold text-gray-700">{event.name}</p>
@@ -716,7 +716,7 @@ function AISuggestionWidget({ templates, onSelectTemplate }: AISuggestionWidgetP
                     ? goal.color === 'emerald' ? 'bg-emerald-100' : goal.color === 'blue' ? 'bg-blue-100' : 'bg-amber-100' :'bg-gray-100'
                 }`}>
                   <Icon
-                    name={goal.icon as any}
+                    name={goal.icon}
                     size={16}
                     className={selectedGoal === goal.value
                       ? goal.color === 'emerald' ? 'text-emerald-600' : goal.color === 'blue' ? 'text-blue-600' : 'text-amber-600' :'text-gray-500'
@@ -1310,7 +1310,7 @@ export default function PromoCodeTemplatesManagement() {
                   stat.color === 'blue' ? 'w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center' :
                   'w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center'
                 }>
-                  <Icon name={stat.icon as any} size={14} className={
+                  <Icon name={stat.icon} size={14} className={
                     stat.color === 'indigo' ? 'text-indigo-600' :
                     stat.color === 'emerald' ? 'text-emerald-600' :
                     stat.color === 'blue'? 'text-blue-600' : 'text-amber-600'
@@ -1351,7 +1351,7 @@ export default function PromoCodeTemplatesManagement() {
               </select>
               <select
                 value={filterType}
-                onChange={e => setFilterType(e.target.value as any)}
+                onChange={e => setFilterType(e.target.value as 'all' | 'percentage' | 'flat')}
                 className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
               >
                 <option value="all">All Types</option>
@@ -1360,7 +1360,7 @@ export default function PromoCodeTemplatesManagement() {
               </select>
               <select
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as any)}
+                onChange={e => setSortBy(e.target.value as 'created_at' | 'times_used' | 'avg_performance_score')}
                 className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
               >
                 <option value="created_at">Newest First</option>

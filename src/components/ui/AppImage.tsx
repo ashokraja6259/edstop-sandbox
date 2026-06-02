@@ -5,7 +5,8 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 
-interface AppImageProps {
+interface AppImageProps
+    extends Omit<React.ComponentProps<typeof Image>, 'src' | 'alt' | 'width' | 'height' | 'onClick'> {
     src: string;
     alt: string;
     width?: number;
@@ -17,9 +18,8 @@ interface AppImageProps {
     blurDataURL?: string;
     fill?: boolean;
     sizes?: string;
-    onClick?: () => void;
+    onClick?: React.MouseEventHandler<HTMLImageElement>;
     fallbackSrc?: string;
-    [key: string]: any;
 }
 
 function AppImage({

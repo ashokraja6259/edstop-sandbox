@@ -11,7 +11,81 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
+
+interface DashboardTotals {
+  totalGross?: number;
+  totalCommission?: number;
+  totalRider?: number;
+  totalRestaurant?: number;
+  netProfit?: number;
+  avgOrderValue?: number;
+  contributionMargin?: number;
+}
+
+interface ForecastPoint {
+  day: string;
+  total_revenue: number;
+}
+
+interface WeeklySettlement {
+  week: string;
+  restaurant_payout: number;
+  rider_cost: number;
+  net_profit: number;
+}
+
+interface RestaurantProfitability {
+  restaurant: string;
+  orders: number;
+  net_profit: number;
+}
+
+interface RiderPerformance {
+  rider: string;
+  deliveries: number;
+  total_earned: number;
+}
+
+interface RevenueAnomaly {
+  day: string;
+  value: number;
+}
+
+interface DashboardUIProps {
+  totals: DashboardTotals;
+  forecast: ForecastPoint[];
+  anomalies: RevenueAnomaly[];
+  orderCount: number;
+  weeklyData?: WeeklySettlement[];
+  restaurantData?: RestaurantProfitability[];
+  riderData?: RiderPerformance[];
+}
+
+interface CardProps {
+  title: string;
+  value?: number;
+  card: string;
+  text: string;
+  muted: string;
+}
+
+interface SectionProps {
+  title: string;
+  children: ReactNode;
+  card: string;
+  text: string;
+}
+
+interface ChartProps {
+  data: ForecastPoint[];
+  darkMode: boolean;
+}
+
+interface TableProps {
+  headers: string[];
+  rows: ReactNode[][];
+}
 
 /* ================= MAIN COMPONENT ================= */
 
@@ -23,7 +97,7 @@ export default function DashboardUI({
   weeklyData = [],
   restaurantData = [],
   riderData = [],
-}: any) {
+}: DashboardUIProps) {
 
   const [darkMode, setDarkMode] = useState(true);
   const [commissionRate, setCommissionRate] = useState(0);
@@ -62,7 +136,7 @@ export default function DashboardUI({
     if (!weeklyData.length) return;
 
     const headers = ['Week','Restaurant Payout','Rider Cost','Net Profit'];
-    const rows = weeklyData.map((w: any) => [
+    const rows = weeklyData.map((w) => [
       w.week,
       w.restaurant_payout,
       w.rider_cost,
@@ -173,7 +247,7 @@ export default function DashboardUI({
 
         <Table
           headers={['Week','Restaurant Payout','Rider Cost','Net Profit']}
-          rows={weeklyData.map((w:any)=>[
+          rows={weeklyData.map((w)=>[
             w.week,
             `₹${Math.round(w.restaurant_payout)}`,
             `₹${Math.round(w.rider_cost)}`,
@@ -186,7 +260,7 @@ export default function DashboardUI({
       <Section title="Restaurant Profitability" card={card} text={textPrimary}>
         <Table
           headers={['Restaurant','Orders','Net Profit']}
-          rows={restaurantData.map((r:any)=>[
+          rows={restaurantData.map((r)=>[
             r.restaurant,
             r.orders,
             `₹${Math.round(r.net_profit)}`
@@ -198,7 +272,7 @@ export default function DashboardUI({
       <Section title="Rider Performance" card={card} text={textPrimary}>
         <Table
           headers={['Rider','Deliveries','Total Earned']}
-          rows={riderData.map((r:any)=>[
+          rows={riderData.map((r)=>[
             r.rider,
             r.deliveries,
             `₹${Math.round(r.total_earned)}`
@@ -211,7 +285,7 @@ export default function DashboardUI({
         {anomalies.length === 0 ? (
           <p>No abnormal spikes detected</p>
         ) : (
-          anomalies.map((a:any,i:number)=>(
+          anomalies.map((a,i)=>(
             <div key={i} className="text-red-500">
               {a.day} → ₹{a.value}
             </div>
@@ -225,7 +299,7 @@ export default function DashboardUI({
 
 /* ================= COMPONENTS ================= */
 
-function Card({ title, value, card, text, muted }: any) {
+function Card({ title, value, card, text, muted }: CardProps) {
   return (
     <div className={`${card} p-6 rounded-xl border`}>
       <p className={`${muted} text-sm mb-2`}>{title}</p>
@@ -236,7 +310,7 @@ function Card({ title, value, card, text, muted }: any) {
   );
 }
 
-function Section({ title, children, card, text }: any) {
+function Section({ title, children, card, text }: SectionProps) {
   return (
     <div className={`${card} p-8 rounded-2xl border`}>
       <h2 className={`text-2xl font-semibold mb-6 ${text}`}>{title}</h2>
@@ -245,7 +319,7 @@ function Section({ title, children, card, text }: any) {
   );
 }
 
-function Chart({ data, darkMode }: any) {
+function Chart({ data, darkMode }: ChartProps) {
   return (
     <div style={{ width: '100%', height: 300 }}>
       <ResponsiveContainer>
@@ -267,21 +341,21 @@ function Chart({ data, darkMode }: any) {
   );
 }
 
-function Table({ headers, rows }: any) {
+function Table({ headers, rows }: TableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left">
         <thead>
           <tr>
-            {headers.map((h:any)=>
+            {headers.map((h)=>
               <th key={h} className="py-2">{h}</th>
             )}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row:any,i:number)=>(
+          {rows.map((row,i)=>(
             <tr key={i} className="border-t">
-              {row.map((cell:any,j:number)=>
+              {row.map((cell,j)=>
                 <td key={j} className="py-2">{cell}</td>
               )}
             </tr>

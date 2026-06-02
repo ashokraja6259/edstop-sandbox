@@ -452,7 +452,7 @@ export default function PromotionsPage() {
               ].map((stat, i) => (
                 <div key={i} className={`glass-card rounded-2xl p-4 border ${stat.border} animate-slide-up`} style={{ animationDelay: `${i * 0.05}s` }}>
                   <div className={`w-9 h-9 ${stat.bg} rounded-xl flex items-center justify-center mb-2`}>
-                    <Icon name={stat.icon as any} size={18} className={stat.color} />
+                    <Icon name={stat.icon} size={18} className={stat.color} />
                   </div>
                   <p className={`font-bold text-xl ${stat.color}`}>{stat.value}</p>
                   <p className="text-xs text-white/50 mt-0.5">{stat.label}</p>

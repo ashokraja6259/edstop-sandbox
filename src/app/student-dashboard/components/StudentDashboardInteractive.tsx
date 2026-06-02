@@ -142,8 +142,12 @@ const StudentDashboardInteractive = () => {
       await signOut();
       toast.info('Signed out', 'You have been logged out successfully');
       router.push('/login');
-    } catch (error: any) {
-      console.error('Logout error:', error?.message);
+    } catch (error: unknown) {
+      const errorMessage =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? error.message
+          : undefined;
+      console.error('Logout error:', errorMessage);
       toast.error('Logout failed', 'Please try again');
     }
   };

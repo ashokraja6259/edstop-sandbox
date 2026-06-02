@@ -329,7 +329,7 @@ export default function PromotionsAnalyticsDashboard() {
           {kpis.map((kpi, idx) => (
             <div key={idx} className="glass rounded-2xl border border-white/10 p-4 flex flex-col gap-2">
               <div className={`w-9 h-9 ${kpi.bgColor} rounded-xl flex items-center justify-center`}>
-                <Icon name={kpi.icon as any} size={18} className={kpi.color} />
+                <Icon name={kpi.icon} size={18} className={kpi.color} />
               </div>
               <div>
                 <p className="text-xl font-bold text-white">{kpi.value}</p>

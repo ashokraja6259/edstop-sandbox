@@ -82,7 +82,7 @@ const ToastSingle = ({ toast, onDismiss }: ToastProps) => {
       onClick={dismiss}
     >
       <div className="flex-shrink-0 mt-0.5">
-        <Icon name={config.icon as any} size={20} className={config.iconColor} />
+        <Icon name={config.icon} size={20} className={config.iconColor} />
       </div>
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-semibold leading-tight ${config.titleColor}`}>{toast.title}</p>

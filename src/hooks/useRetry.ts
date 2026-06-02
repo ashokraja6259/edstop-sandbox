@@ -98,7 +98,7 @@ export function useRetry(options: UseRetryOptions = {}) {
   const manualRetry = useCallback(
     async (resetCount = false) => {
       clearTimers();
-      let attempt = resetCount ? 0 : retryState.retryCount;
+      const attempt = resetCount ? 0 : retryState.retryCount;
       setRetryState(prev => ({
         ...prev,
         retryCount: attempt,

@@ -2,22 +2,28 @@
 
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import * as HeroIcons from '@heroicons/react/24/outline';
 import * as HeroIconsSolid from '@heroicons/react/24/solid';
 import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 
 type IconVariant = 'outline' | 'solid';
 
-interface IconProps {
+interface IconProps extends Omit<React.SVGProps<SVGSVGElement>, 'name' | 'onClick'> {
     name: string; // Changed to string to accept dynamic values
     variant?: IconVariant;
     size?: number;
     className?: string;
-    onClick?: () => void;
+    onClick?: React.MouseEventHandler<SVGSVGElement>;
     disabled?: boolean;
-    [key: string]: any;
 }
+
+type HeroIconComponent = React.ComponentType<
+    React.SVGProps<SVGSVGElement> & {
+        title?: string;
+        titleId?: string;
+    }
+>;
 
 function Icon({
     name,
@@ -29,7 +35,7 @@ function Icon({
     ...props
 }: IconProps) {
     const iconSet = variant === 'solid' ? HeroIconsSolid : HeroIcons;
-    const IconComponent = iconSet[name as keyof typeof iconSet] as React.ComponentType<any>;
+    const IconComponent = iconSet[name as keyof typeof iconSet] as HeroIconComponent | undefined;
 
     if (!IconComponent) {
         return (
@@ -57,7 +63,6 @@ function Icon({
 export default Icon; 
 const IconProps: React.FC = () => {
   React.useEffect(() => {
-    // eslint-disable-next-line no-console
     console.warn('Placeholder: IconProps is not implemented yet.');
   }, []);
   return (

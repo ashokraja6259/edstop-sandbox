@@ -23,8 +23,12 @@ export default function DashboardPage() {
       setLoggingOut(true);
       await signOut();
       router.push('/login');
-    } catch (error: any) {
-      console.error('Logout error:', error?.message);
+    } catch (error: unknown) {
+      const errorMessage =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? error.message
+          : undefined;
+      console.error('Logout error:', errorMessage);
       setLoggingOut(false);
     }
   };

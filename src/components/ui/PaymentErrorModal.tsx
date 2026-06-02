@@ -308,7 +308,7 @@ const PaymentErrorModal = ({
                       />
                       <div className="flex items-center gap-2 flex-1">
                         <Icon
-                          name={PAYMENT_METHOD_ICONS[method] as any}
+                          name={PAYMENT_METHOD_ICONS[method]}
                           size={18}
                           className={isSelected ? 'text-primary' : 'text-white/50'}
                         />

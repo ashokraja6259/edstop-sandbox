@@ -6,6 +6,12 @@ interface Props {
   params: { id: string };
 }
 
+interface OrderItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
 export default async function OrderDetailsPage({ params }: Props) {
   const supabase = await createClient(); // ✅ uses secure server client
 
@@ -39,7 +45,7 @@ export default async function OrderDetailsPage({ params }: Props) {
       <div className="mt-6">
         <h2 className="font-semibold mb-2">Items</h2>
         <ul className="space-y-2">
-          {order.items?.map((item: any, index: number) => (
+          {order.items?.map((item: OrderItem, index: number) => (
             <li key={index} className="border p-2 rounded">
               {item.name} × {item.quantity} — ₹{item.price}
             </li>

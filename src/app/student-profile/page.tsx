@@ -400,7 +400,7 @@ export default function StudentProfilePage() {
                   : 'text-white/60 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Icon name={tab.icon as any} size={16} />
+              <Icon name={tab.icon} size={16} />
               <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
@@ -1051,8 +1051,12 @@ function DataExportTab({ userId, userEmail }: DataExportTabProps) {
       const now = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
       setLastExport(now);
       toast.success('Export ready', `Your data has been downloaded as ${selectedFormat.toUpperCase()}`);
-    } catch (err: any) {
-      toast.error('Export failed', err.message || 'Something went wrong. Please try again.');
+    } catch (err: unknown) {
+      const errorMessage =
+        typeof err === 'object' && err !== null && 'message' in err
+          ? String(err.message)
+          : undefined;
+      toast.error('Export failed', errorMessage || 'Something went wrong. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -1113,7 +1117,7 @@ function DataExportTab({ userId, userEmail }: DataExportTabProps) {
                 }`}
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBgMap[dt.color]}`}>
-                  <Icon name={dt.icon as any} size={20} />
+                  <Icon name={dt.icon} size={20} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white">{dt.label}</p>
