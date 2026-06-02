@@ -70,6 +70,103 @@ const mockPaymentMethods: PaymentMethod[] = [
   { id: 'pm3', type: 'card', label: 'HDFC Debit Card', detail: '**** **** **** 4521', isDefault: false, icon: '💳' },
 ];
 
+interface ToggleProps {
+  checked: boolean;
+  onChange: () => void;
+}
+
+const Toggle = ({ checked, onChange }: ToggleProps) => (
+  <button
+    onClick={onChange}
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+      checked ? 'bg-purple-500' : 'bg-white/20'
+    }`}
+  >
+    <span
+      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+        checked ? 'translate-x-6' : 'translate-x-1'
+      }`}
+    />
+  </button>
+);
+
+interface InputFieldProps {
+  label: string;
+  value: string;
+  onChange?: (value: string) => void;
+  error?: string;
+  type?: string;
+  placeholder?: string;
+  disabled?: boolean;
+}
+
+const InputField = ({
+  label,
+  value,
+  onChange,
+  error,
+  type = 'text',
+  placeholder,
+  disabled = false,
+}: InputFieldProps) => (
+  <div>
+    <label className="block text-xs font-medium text-white/60 mb-1.5">{label}</label>
+    <input
+      type={type}
+      value={value}
+      onChange={e => onChange?.(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      className={`w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white text-sm placeholder-white/30
+        focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all
+        ${
+          disabled ? 'opacity-50 cursor-not-allowed' : error ?'border-red-500/60 focus:border-red-500' : 'border-white/10 focus:border-purple-500/50'
+        }`}
+    />
+    {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+  </div>
+);
+
+interface PasswordFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  showPassword: boolean;
+  onToggleVisibility: () => void;
+}
+
+const PasswordField = ({
+  label,
+  value,
+  onChange,
+  error,
+  showPassword,
+  onToggleVisibility,
+}: PasswordFieldProps) => (
+  <div>
+    <label className="block text-xs font-medium text-white/60 mb-1.5">{label}</label>
+    <div className="relative">
+      <input
+        type={showPassword ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={`w-full px-4 py-2.5 pr-10 rounded-xl bg-white/5 border text-white text-sm
+          focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all
+          ${error ? 'border-red-500/60' : 'border-white/10 focus:border-purple-500/50'}`}
+      />
+      <button
+        type="button"
+        onClick={onToggleVisibility}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+      >
+        <Icon name={showPassword ? 'EyeSlashIcon' : 'EyeIcon'} size={16} />
+      </button>
+    </div>
+    {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
+  </div>
+);
+
 export default function StudentProfilePage() {
   const { user } = useAuth();
   const toast = useToast();
@@ -206,74 +303,6 @@ export default function StudentProfilePage() {
   const handleTerminateSession = (id: string) => {
     liveTerminateSession(id);
   };
-
-  const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
-    <button
-      onClick={onChange}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-        checked ? 'bg-purple-500' : 'bg-white/20'
-      }`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
-          checked ? 'translate-x-6' : 'translate-x-1'
-        }`}
-      />
-    </button>
-  );
-
-  const InputField = ({
-    label, value, onChange, error, type = 'text', placeholder, disabled = false,
-  }: {
-    label: string; value: string; onChange?: (v: string) => void;
-    error?: string; type?: string; placeholder?: string; disabled?: boolean;
-  }) => (
-    <div>
-      <label className="block text-xs font-medium text-white/60 mb-1.5">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={e => onChange?.(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className={`w-full px-4 py-2.5 rounded-xl bg-white/5 border text-white text-sm placeholder-white/30
-          focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all
-          ${
-            disabled ? 'opacity-50 cursor-not-allowed' : error ?'border-red-500/60 focus:border-red-500' : 'border-white/10 focus:border-purple-500/50'
-          }`}
-      />
-      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
-    </div>
-  );
-
-  const PasswordField = ({
-    label, fieldKey, value, onChange, error,
-  }: {
-    label: string; fieldKey: 'current' | 'newPass' | 'confirm';
-    value: string; onChange: (v: string) => void; error?: string;
-  }) => (
-    <div>
-      <label className="block text-xs font-medium text-white/60 mb-1.5">{label}</label>
-      <div className="relative">
-        <input
-          type={showPasswords[fieldKey] ? 'text' : 'password'}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          className={`w-full px-4 py-2.5 pr-10 rounded-xl bg-white/5 border text-white text-sm
-            focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all
-            ${error ? 'border-red-500/60' : 'border-white/10 focus:border-purple-500/50'}`}
-        />
-        <button
-          type="button"
-          onClick={() => setShowPasswords(p => ({ ...p, [fieldKey]: !p[fieldKey] }))}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
-        >
-          <Icon name={showPasswords[fieldKey] ? 'EyeSlashIcon' : 'EyeIcon'} size={16} />
-        </button>
-      </div>
-      {error && <p className="mt-1 text-xs text-red-400">{error}</p>}
-    </div>
-  );
 
   // ── Supabase real-time: 2FA, sessions, password change tracking ──────────
   const {
@@ -519,25 +548,28 @@ export default function StudentProfilePage() {
                 <div className="sm:col-span-2">
                   <PasswordField
                     label="Current Password"
-                    fieldKey="current"
                     value={passwords.current}
                     onChange={v => setPasswords(p => ({ ...p, current: v }))}
                     error={passwordErrors.current}
+                    showPassword={showPasswords.current}
+                    onToggleVisibility={() => setShowPasswords(p => ({ ...p, current: !p.current }))}
                   />
                 </div>
                 <PasswordField
                   label="New Password"
-                  fieldKey="newPass"
                   value={passwords.newPass}
                   onChange={v => setPasswords(p => ({ ...p, newPass: v }))}
                   error={passwordErrors.newPass}
+                  showPassword={showPasswords.newPass}
+                  onToggleVisibility={() => setShowPasswords(p => ({ ...p, newPass: !p.newPass }))}
                 />
                 <PasswordField
                   label="Confirm New Password"
-                  fieldKey="confirm"
                   value={passwords.confirm}
                   onChange={v => setPasswords(p => ({ ...p, confirm: v }))}
                   error={passwordErrors.confirm}
+                  showPassword={showPasswords.confirm}
+                  onToggleVisibility={() => setShowPasswords(p => ({ ...p, confirm: !p.confirm }))}
                 />
               </div>
               {passwords.newPass && (
