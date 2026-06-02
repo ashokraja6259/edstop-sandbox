@@ -145,7 +145,6 @@ export function useDeliveryTracking(
   useEffect(() => {
 
     if (!orderId || !userId) {
-      setDelivery(null);
       return;
     }
 
@@ -306,7 +305,7 @@ export function useDeliveryTracking(
   }, [delivery?.estimatedDeliveryTime]);
 
   return {
-    delivery,
+    delivery: orderId && userId ? delivery : null,
     isLoading,
     error,
     statusConfig: DELIVERY_STATUS_CONFIG,

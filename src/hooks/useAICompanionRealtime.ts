@@ -52,7 +52,6 @@ export function useAICompanionRealtime(
 
   useEffect(() => {
     if (!userId) {
-      setIsLoading(false);
       return;
     }
 
@@ -140,7 +139,7 @@ export function useAICompanionRealtime(
     questionsLimit,
     isPremium,
     lastResetAt,
-    isLoading,
-    isLive,
+    isLoading: userId ? isLoading : false,
+    isLive: userId ? isLive : false,
   };
 }

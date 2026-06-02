@@ -122,7 +122,6 @@ export function useRealtimeChannels(
 
   useEffect(() => {
     if (!userId) {
-      setIsLoading(false);
       return;
     }
 
@@ -323,8 +322,8 @@ export function useRealtimeChannels(
     cashbackEarned,
     activeOrders,
     recentTransactions,
-    isLoading,
-    isLive,
+    isLoading: userId ? isLoading : false,
+    isLive: userId ? isLive : false,
   };
 }
 

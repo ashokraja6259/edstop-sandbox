@@ -180,7 +180,6 @@ export function useRiderRealtime(
 
   useEffect(() => {
     if (!riderId) {
-      setIsLoading(false);
       return;
     }
 
@@ -280,6 +279,6 @@ export function useRiderRealtime(
     completedOrders,
     batchDeliveries,
     riderStats,
-    isLoading,
+    isLoading: riderId ? isLoading : false,
   };
 }
