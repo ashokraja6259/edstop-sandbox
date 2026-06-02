@@ -96,6 +96,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (paymentMethod === "razorpay") {
+      return NextResponse.json(
+        { error: "Razorpay payment verification is not enabled for food orders yet." },
+        { status: 400 }
+      );
+    }
+
     const normalizedCartItems: CreateOrderCartItem[] = cartItems.map((item) => ({
       id: item.id,
       name: typeof item.name === "string" ? item.name : "",

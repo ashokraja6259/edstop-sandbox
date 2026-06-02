@@ -112,6 +112,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Payment not captured' }, { status: 400 });
     }
 
+    if (paymentInfo.order_id !== razorpayOrderId) {
+      return NextResponse.json({ error: 'Payment order mismatch' }, { status: 400 });
+    }
+
+    const { data: existingOrder, error: existingOrderError } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('payment_id', razorpayPaymentId)
+      .maybeSingle();
+
+    if (existingOrderError) {
+      return NextResponse.json({ error: 'Unable to validate payment replay' }, { status: 500 });
+    }
+
+    if (existingOrder) {
+      return NextResponse.json({ error: 'Payment has already been used for an order' }, { status: 409 });
+    }
+
     const orderNumber = `DS${Date.now().toString().slice(-8)}`;
     const checkoutItems = pricing.normalizedItems.map((item) => ({
       id: item.id,
