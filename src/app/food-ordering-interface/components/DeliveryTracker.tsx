@@ -135,7 +135,7 @@ const DeliveryTracker = ({ delivery, onDismiss, className = '' }: DeliveryTracke
         {!isCancelled && (
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-1">
-              {DARK_STORE_STEPS.map((step, idx) => {
+              {DARK_STORE_STEPS.map((step) => {
                 const stepConfig = DELIVERY_STATUS_CONFIG[step];
                 const stepNum = stepConfig?.step ?? 0;
                 const isDone = currentStep > stepNum;

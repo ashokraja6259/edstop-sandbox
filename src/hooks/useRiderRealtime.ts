@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient'; // ✅ singleton
 import { useToast } from '@/contexts/ToastContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -165,7 +165,7 @@ export function useRiderRealtime(
 
   const [activeOrders, setActiveOrders] = useState<RiderOrder[]>([]);
   const [completedOrders, setCompletedOrders] = useState<RiderOrder[]>([]);
-  const [batchDeliveries, setBatchDeliveries] = useState<RiderBatchGroup[]>([]);
+  const [batchDeliveries] = useState<RiderBatchGroup[]>([]);
   const [riderStats, setRiderStats] = useState<RiderStats>({
     dailyDeliveries: 0,
     completedOrders: 0,

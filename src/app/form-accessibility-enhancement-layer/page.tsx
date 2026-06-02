@@ -2,20 +2,10 @@
 
 'use client';
 
-import React, { useState, useRef, useId, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-interface FormField {
-    id: string;
-    label: string;
-    type: string;
-    required: boolean;
-    placeholder?: string;
-    description?: string;
-    options?: { value: string; label: string }[];
-}
-
 interface ValidationErrors {
     [key: string]: string;
 }
@@ -223,7 +213,6 @@ export default function FormAccessibilityPage() {
     const [errors, setErrors] = useState<ValidationErrors>({});
     const [submitted, setSubmitted] = useState(false);
     const [liveMessage, setLiveMessage] = useState('');
-    const firstErrorRef = useRef<HTMLElement | null>(null);
     const successRef = useRef<HTMLDivElement>(null);
 
     const stepLabels = ['Personal Info', 'Details', 'Review'];

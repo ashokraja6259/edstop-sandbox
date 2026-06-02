@@ -96,7 +96,7 @@ export default async function DashboardShell({
   /* ================= ANOMALY DETECTION ================= */
 
   const anomalies = Object.entries(dailyMap)
-    .filter(([_, value]) =>
+    .filter(([, value]) =>
       avgDaily > 0 &&
       (value > avgDaily * 1.8 || value < avgDaily * 0.4)
     )

@@ -120,6 +120,7 @@ function AppImage({
             <div className={`relative ${className}`}>
                 <Image
                     {...imageProps}
+                    alt={alt}
                     fill
                     sizes={sizes || '100vw'}
                     style={{ objectFit: 'cover' }}
@@ -131,6 +132,7 @@ function AppImage({
     return (
         <Image
             {...imageProps}
+            alt={alt}
             width={width || 400}
             height={height || 300}
         />

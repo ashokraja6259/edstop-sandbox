@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabaseClient';
 import { useToast } from '@/contexts/ToastContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';

@@ -20,15 +20,6 @@ import { useToast } from '@/contexts/ToastContext';
 import { useRealtimeChannels } from '@/hooks/useRealtimeChannels';
 import { useAICompanionRealtime } from '@/hooks/useAICompanionRealtime';
 
-interface Transaction {
-  id: string;
-  type: 'credit' | 'debit';
-  amount: number;
-  description: string;
-  date: string;
-  status: 'completed' | 'pending' | 'expired';
-}
-
 interface Service {
   id: string;
   title: string;
@@ -38,15 +29,6 @@ interface Service {
   badge?: string;
   isActive: boolean;
   activeOrderCount: number;
-}
-
-interface OrderStatus {
-  id: string;
-  serviceName: string;
-  status: 'pending' | 'confirmed' | 'preparing' | 'out-for-delivery' | 'delivered' | 'cancelled';
-  estimatedTime?: string;
-  orderNumber: string;
-  icon: 'ShoppingBagIcon' | 'ShoppingCartIcon';
 }
 
 interface Offer {
@@ -82,10 +64,10 @@ const StudentDashboardInteractive = () => {
   const toast = useToast();
 
   // Connect Supabase real-time channels for order, delivery, and wallet updates
-  const { walletBalance: liveBalance, cashbackEarned: liveCashback, activeOrders: liveOrders, recentTransactions: liveTransactions, isLoading: isDataLoading, isLive } = useRealtimeChannels(user?.id);
+  const { walletBalance: liveBalance, cashbackEarned: liveCashback, activeOrders: liveOrders, recentTransactions: liveTransactions, isLoading: isDataLoading } = useRealtimeChannels(user?.id);
 
   // Connect Supabase real-time listener for AI usage (questions remaining, premium status)
-  const { questionsUsed: liveQuestionsUsed, questionsLimit: liveQuestionsLimit, isPremium: liveIsPremium, isLoading: isAILoading } = useAICompanionRealtime(user?.id, 0, false);
+  const { isLoading: isAILoading } = useAICompanionRealtime(user?.id, 0, false);
 
   const { retry, manualRetry, reset, isRetrying, retryCount, nextRetryIn, maxRetriesReached } = useRetry({
     maxRetries: 3,

@@ -3,7 +3,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Icon from '@/components/ui/AppIcon';
 import AppImage from '@/components/ui/AppImage';
 import { supabase } from '@/lib/supabaseClient'; // ✅ singleton
 

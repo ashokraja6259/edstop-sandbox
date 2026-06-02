@@ -347,7 +347,11 @@ export default function TemplateReviewQueue() {
   const toggleBlockerExpand = (id: string) => {
     setExpandedBlockers(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -532,7 +536,11 @@ export default function TemplateReviewQueue() {
                           e.stopPropagation();
                           setSelectedBatch(prev => {
                             const next = new Set(prev);
-                            isBatchSelected ? next.delete(t.id) : next.add(t.id);
+                            if (isBatchSelected) {
+                              next.delete(t.id);
+                            } else {
+                              next.add(t.id);
+                            }
                             return next;
                           });
                         }}

@@ -4,11 +4,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 export default function UnauthorizedPage() {
-    const router = useRouter();
-
     return (
         <main
             className="min-h-screen flex flex-col items-center justify-center bg-background p-4 gradient-mesh"

@@ -94,12 +94,12 @@ const DarkStoreInteractive = () => {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorType, setErrorType] = useState<'api' | 'network' | 'generic'>('generic');
-  const [isOnline, setIsOnline] = useState(true);
+  const [, setIsOnline] = useState(true);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderDetails, setOrderDetails] = useState<{ orderId: string; total: number; items: { name: string; quantity: number; price: number }[]; promoCode?: string; promoDiscount?: number } | null>(null);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
 
-  const { retry, manualRetry, reset, isRetrying, retryCount, nextRetryIn, maxRetriesReached, canRetry } = useRetry({
+  const { retry, manualRetry, reset, isRetrying, retryCount, nextRetryIn, maxRetriesReached } = useRetry({
     maxRetries: 3,
     baseDelay: 1000,
     onRetry: async () => {
@@ -187,7 +187,7 @@ const DarkStoreInteractive = () => {
   }, []);
 
   // ── Supabase real-time: live stock + delivery tracking ────────────────────
-  const { liveStockMap, activeDelivery, isLoadingDelivery, statusConfig, steps } = useDarkStoreRealtime(
+  const { liveStockMap, activeDelivery, isLoadingDelivery } = useDarkStoreRealtime(
     user?.id,
     activeOrderId,
     mockStockMap

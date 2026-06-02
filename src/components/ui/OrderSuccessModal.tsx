@@ -52,7 +52,6 @@ const OrderSuccessModal = ({
   items,
   total,
   paymentMethod,
-  walletUsed = 0,
   estimatedTime,
   promoCode,
   promoDiscount = 0,
@@ -63,7 +62,6 @@ const OrderSuccessModal = ({
   const [copied, setCopied] = useState(false);
   const animFrameRef = useRef<number | null>(null);
   const particleStateRef = useRef<Particle[]>([]);
-  const [, forceUpdate] = useState(0);
 
 
   useEffect(() => {

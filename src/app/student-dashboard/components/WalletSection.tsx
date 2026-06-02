@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import Link from 'next/link';
-import PaymentErrorModal, { type PaymentMethod, type SavedCartItem } from '@/components/ui/PaymentErrorModal';
+import PaymentErrorModal, { type PaymentMethod } from '@/components/ui/PaymentErrorModal';
 
 interface Transaction {
   id: string;
@@ -91,7 +91,7 @@ const WalletSection = ({ balance, cashbackEarned, recentTransactions, isLoading 
     console.info('Retrying recharge with:', method);
   };
 
-  const handleCartRecover = (_cart: SavedCartItem[]) => {
+  const handleCartRecover = () => {
     // No cart for wallet recharge
   };
 

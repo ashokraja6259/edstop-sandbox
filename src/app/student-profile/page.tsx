@@ -3,7 +3,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import { useAuth } from '@/contexts/AuthContext';
@@ -72,7 +71,6 @@ const mockPaymentMethods: PaymentMethod[] = [
 ];
 
 export default function StudentProfilePage() {
-  const router = useRouter();
   const { user } = useAuth();
   const toast = useToast();
 
@@ -98,12 +96,6 @@ export default function StudentProfilePage() {
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
   const [twoFAMethod, setTwoFAMethod] = useState<'app' | 'sms'>('app');
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
-
-  const sessions = [
-    { id: 's1', device: 'Chrome on Windows', location: 'Kharagpur, WB', time: 'Active now', current: true },
-    { id: 's2', device: 'Safari on iPhone', location: 'Kharagpur, WB', time: '2 hours ago', current: false },
-    { id: 's3', device: 'Firefox on MacOS', location: 'Kolkata, WB', time: '3 days ago', current: false },
-  ];
 
   // Notification State
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>({
@@ -948,7 +940,7 @@ export default function StudentProfilePage() {
 
         {/* ── DATA EXPORT TAB ── */}
         {activeTab === 'data-export' && (
-          <DataExportTab userId={user?.id} userEmail={user?.email} />
+          <DataExportTab />
         )}
 
         {/* ── DANGER ZONE ── */}
@@ -980,12 +972,7 @@ export default function StudentProfilePage() {
 }
 
 // ── DATA EXPORT TAB COMPONENT ────────────────────────────────────────────────
-interface DataExportTabProps {
-  userId?: string;
-  userEmail?: string;
-}
-
-function DataExportTab({ userId, userEmail }: DataExportTabProps) {
+function DataExportTab() {
   const toast = useToast();
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['profile', 'orders', 'activity']);
   const [selectedFormat, setSelectedFormat] = useState<'json' | 'csv'>('json');
@@ -1062,11 +1049,6 @@ function DataExportTab({ userId, userEmail }: DataExportTabProps) {
     }
   };
 
-  const colorMap: Record<string, string> = {
-    purple: 'bg-purple-500/20 border-purple-500/30 text-purple-300',
-    indigo: 'bg-indigo-500/20 border-indigo-500/30 text-indigo-300',
-    emerald: 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300',
-  };
   const iconBgMap: Record<string, string> = {
     purple: 'bg-purple-500/20 text-purple-400',
     indigo: 'bg-indigo-500/20 text-indigo-400',

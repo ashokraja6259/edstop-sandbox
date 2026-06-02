@@ -97,7 +97,7 @@ const SearchAndSort = ({ searchQuery, onSearchChange, sortBy, onSortChange }: Se
 
         {showSortMenu && (
           <div className="absolute right-0 top-full mt-2 w-56 glass-ultra rounded-xl shadow-2xl shadow-black/50 z-10 overflow-hidden animate-scale-in">
-            {sortOptions.map((option, index) => (
+            {sortOptions.map((option) => (
               <button
                 key={option.value}
                 onClick={() => {

@@ -68,8 +68,8 @@ const FoodOrderingInteractive = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-  const [trackedOrderId, setTrackedOrderId] = useState<string | null>(null);
-  const [showTracker, setShowTracker] = useState(false);
+  const [trackedOrderId] = useState<string | null>(null);
+  const [showTracker] = useState(false);
 
   const [loadingRestaurants, setLoadingRestaurants] = useState(true);
   const [loadingMenu, setLoadingMenu] = useState(false);

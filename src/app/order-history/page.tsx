@@ -16,8 +16,6 @@ import {
 } from 'recharts';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/contexts/ToastContext';
 import { useOrderHistoryRealtime } from '@/hooks/useOrderHistoryRealtime';
 
 /* ================= TYPES ================= */
@@ -79,9 +77,7 @@ const mockOrders: Order[] = [];
 /* ================= COMPONENT ================= */
 
 export default function OrderHistoryPage() {
-  const router = useRouter();
-  const toast = useToast();
-  const { liveOrders, isLive, isLoading, hasLiveData } = useOrderHistoryRealtime();
+  const { liveOrders, hasLiveData } = useOrderHistoryRealtime();
 
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [analytics, setAnalytics] = useState<OrderAnalytics | null>(null);
