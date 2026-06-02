@@ -17,6 +17,7 @@ import {
 
 import { useState, useEffect, useMemo } from 'react';
 import { useOrderHistoryRealtime } from '@/hooks/useOrderHistoryRealtime';
+import { useIsClient } from '@/hooks/useIsClient';
 
 /* ================= TYPES ================= */
 
@@ -81,13 +82,7 @@ export default function OrderHistoryPage() {
 
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [analytics, setAnalytics] = useState<OrderAnalytics | null>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  /* ================= HYDRATION ================= */
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useIsClient();
 
   /* ================= ANALYTICS FETCH ================= */
 

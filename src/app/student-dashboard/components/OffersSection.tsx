@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import AppImage from '@/components/ui/AppImage';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface Offer {
   id: string;
@@ -24,13 +25,9 @@ interface OffersSectionProps {
 }
 
 const OffersSection = ({ offers }: OffersSectionProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [currentOfferIndex, setCurrentOfferIndex] = useState(0);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   useEffect(() => {
     if (!isHydrated || offers.length <= 1) return;

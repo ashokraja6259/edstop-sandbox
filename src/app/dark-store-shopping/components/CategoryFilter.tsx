@@ -2,8 +2,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface Category {
   id: string;
@@ -19,11 +19,7 @@ interface CategoryFilterProps {
 }
 
 const CategoryFilter = ({ categories, selectedCategory, onCategoryChange }: CategoryFilterProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useIsClient();
 
   if (!isHydrated) {
     return (

@@ -2,9 +2,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import ErrorFallback from '@/components/ui/ErrorFallback';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface OrderStatus {
   id: string;
@@ -34,11 +34,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; b
 const steps = ['pending', 'confirmed', 'preparing', 'out-for-delivery', 'delivered'];
 
 const ActiveOrdersSection = ({ orders, isLoading = false, hasError = false, onRetry }: ActiveOrdersSectionProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useIsClient();
 
   if (!isHydrated) {
     return (

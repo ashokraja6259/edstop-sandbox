@@ -2,9 +2,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import { IconProps } from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface PromptCategory {
   id: string;
@@ -19,12 +20,8 @@ interface SuggestedPromptsProps {
 }
 
 const SuggestedPrompts = ({ onPromptSelect, disabled = false }: SuggestedPromptsProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [selectedCategory, setSelectedCategory] = useState<string>('academic');
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   const categories: PromptCategory[] = [
     {

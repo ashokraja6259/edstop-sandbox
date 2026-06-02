@@ -2,8 +2,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface ChatSession {
   id: string;
@@ -21,13 +22,9 @@ interface ChatHistoryProps {
 }
 
 const ChatHistory = ({ sessions, onSessionSelect, onSessionDelete, currentSessionId }: ChatHistoryProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   if (!isHydrated) {
     return (

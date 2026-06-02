@@ -2,10 +2,11 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import Link from 'next/link';
 import PaymentErrorModal, { type PaymentMethod } from '@/components/ui/PaymentErrorModal';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface Transaction {
   id: string;
@@ -24,15 +25,11 @@ interface WalletSectionProps {
 }
 
 const WalletSection = ({ balance, cashbackEarned, recentTransactions, isLoading = false }: WalletSectionProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [showTransactions, setShowTransactions] = useState(false);
   const [showRechargeError, setShowRechargeError] = useState(false);
   const [rechargeRetryCount, setRechargeRetryCount] = useState(0);
   const [rechargeErrorCode, setRechargeErrorCode] = useState('PAYMENT_FAILED');
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   if (!isHydrated) {
     return (

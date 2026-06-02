@@ -2,9 +2,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import AppImage from '@/components/ui/AppImage';
 import { supabase } from '@/lib/supabaseClient'; // ✅ singleton
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface CartItem {
   id: string;
@@ -38,7 +39,7 @@ const ShoppingCart = ({
   onClose,
   isCheckingOut = false,
 }: ShoppingCartProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [quantityErrors, setQuantityErrors] = useState<Record<string, string>>({});
   const [checkoutError, setCheckoutError] = useState('');
 
@@ -50,10 +51,6 @@ const ShoppingCart = ({
   } | null>(null);
   const [promoError, setPromoError] = useState('');
   const [isValidatingPromo, setIsValidatingPromo] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,

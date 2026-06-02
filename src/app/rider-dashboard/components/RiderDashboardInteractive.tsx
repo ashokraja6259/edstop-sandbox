@@ -13,6 +13,7 @@ import { useRetry } from '@/hooks/useRetry';
 import { useToast } from '@/contexts/ToastContext';
 import { useRiderRealtime } from '@/hooks/useRiderRealtime';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsClient } from '@/hooks/useIsClient';
 
 
 interface OrderItem {
@@ -195,7 +196,7 @@ const LiveBadge = () => (
 );
 
 const RiderDashboardInteractive = () => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [activeTab, setActiveTab] = useState<'active' | 'batch' | 'completed'>('active');
 
   // Local state for optimistic UI updates (status changes made by rider)
@@ -262,10 +263,6 @@ const RiderDashboardInteractive = () => {
       setLocalRiderStats(liveRiderStats);
     }
   }, [useLiveData, isLiveLoading, liveActiveOrders, liveCompletedOrders, liveBatchDeliveries, liveRiderStats]);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

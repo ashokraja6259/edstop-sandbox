@@ -2,9 +2,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import AppImage from '@/components/ui/AppImage';
 import Icon from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface Product {
   id: string;
@@ -25,12 +26,8 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product, cartQuantity, onAddToCart, onUpdateQuantity }: ProductCardProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [isAdding, setIsAdding] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   const isOutOfStock = product.stock === 0;
   const isLowStock = product.stock > 0 && product.stock <= 5;

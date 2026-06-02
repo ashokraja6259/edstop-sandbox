@@ -2,8 +2,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface ChatMessageProps {
   role: 'user' | 'assistant';
@@ -14,12 +15,8 @@ interface ChatMessageProps {
 }
 
 const ChatMessage = ({ role, content, timestamp, isBookmarked = false, onBookmark }: ChatMessageProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [showActions, setShowActions] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   if (!isHydrated) {
     return (

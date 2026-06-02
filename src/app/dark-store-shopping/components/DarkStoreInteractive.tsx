@@ -16,6 +16,7 @@ import { useDarkStoreRealtime } from '@/hooks/useDarkStoreRealtime';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import { DARK_STORE_PRODUCTS } from '@/lib/dark-store/catalog';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface Product {
   id: string;
@@ -85,7 +86,7 @@ const loadRazorpayScript = async () => {
 
 const DarkStoreInteractive = () => {
   const supabase = useMemo(() => createSupabaseClient(), []);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'price-low' | 'price-high' | 'popularity' | 'availability'>('popularity');
@@ -110,10 +111,6 @@ const DarkStoreInteractive = () => {
 
   const toast = useToast();
   const { user } = useAuth();
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   useEffect(() => {
     const handleOnline = () => {

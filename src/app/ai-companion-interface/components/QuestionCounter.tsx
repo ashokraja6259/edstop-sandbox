@@ -2,8 +2,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface QuestionCounterProps {
   questionsUsed: number;
@@ -13,11 +13,7 @@ interface QuestionCounterProps {
 }
 
 const QuestionCounter = ({ questionsUsed, questionsLimit, isPremium, onUpgradeClick }: QuestionCounterProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useIsClient();
 
   const questionsRemaining = questionsLimit - questionsUsed;
   const usagePercentage = (questionsUsed / questionsLimit) * 100;

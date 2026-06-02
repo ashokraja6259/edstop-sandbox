@@ -2,8 +2,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface SearchAndSortProps {
   searchQuery: string;
@@ -13,13 +14,9 @@ interface SearchAndSortProps {
 }
 
 const SearchAndSort = ({ searchQuery, onSearchChange, sortBy, onSortChange }: SearchAndSortProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
 
   const sortOptions = [
     { value: 'popularity' as const, label: 'Most Popular', icon: '🔥' },

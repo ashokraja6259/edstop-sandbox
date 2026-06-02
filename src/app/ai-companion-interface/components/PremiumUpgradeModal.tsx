@@ -2,8 +2,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface PremiumUpgradeModalProps {
   isOpen: boolean;
@@ -12,11 +13,7 @@ interface PremiumUpgradeModalProps {
 }
 
 const PremiumUpgradeModal = ({ isOpen, onClose, onUpgrade }: PremiumUpgradeModalProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
+  const isHydrated = useIsClient();
 
   useEffect(() => {
     if (isOpen && isHydrated) {
