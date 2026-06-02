@@ -80,7 +80,6 @@ const mockOrders: Order[] = [];
 export default function OrderHistoryPage() {
   const { liveOrders, hasLiveData } = useOrderHistoryRealtime();
 
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [analytics, setAnalytics] = useState<OrderAnalytics | null>(null);
   const isHydrated = useIsClient();
 
@@ -106,12 +105,13 @@ export default function OrderHistoryPage() {
     fetchAnalytics();
   }, []);
 
-  /* ================= LIVE DATA ================= */
+  /* ================= DISPLAY DATA ================= */
 
-  useEffect(() => {
+  const orders = useMemo(() => {
     if (hasLiveData && liveOrders.length > 0) {
-      setOrders(liveOrders as unknown as Order[]);
+      return liveOrders as unknown as Order[];
     }
+    return mockOrders;
   }, [liveOrders, hasLiveData]);
 
   /* ================= DERIVED ANALYTICS ================= */
