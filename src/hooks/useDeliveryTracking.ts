@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabaseClient';
 import { useToast } from '@/contexts/ToastContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+const supabase = createClient();
+
 /* ================= TYPES ================= */
 
 export type DeliveryStatus =
@@ -129,11 +131,6 @@ export function useDeliveryTracking(
   userId: string | undefined
 ) {
 
-  /* stable supabase */
-
-  const supabaseRef = useRef(createClient());
-  const supabase = supabaseRef.current;
-
   const toast = useToast();
 
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -203,7 +200,7 @@ export function useDeliveryTracking(
       cancelled = true;
     };
 
-  }, [orderId, userId, supabase]);
+  }, [orderId, userId]);
 
   /* ================= REALTIME ================= */
 
@@ -283,7 +280,7 @@ export function useDeliveryTracking(
       }
     };
 
-  }, [orderId, userId, supabase, toast]);
+  }, [orderId, userId, toast]);
 
   /* ================= ETA REFRESH ================= */
 
