@@ -103,6 +103,7 @@ export function useAICompanionRealtime(
   useEffect(() => {
     if (!userId) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- subscription startup must clear the previous channel before creating the next one
     cleanup();
 
     const channel = supabase

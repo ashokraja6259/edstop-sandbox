@@ -250,6 +250,7 @@ export function useOrderHistoryRealtime(): OrderHistoryRealtimeResult {
   /* ───────── INIT ───────── */
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial order fetch starts hook state from Supabase on mount
     fetchOrders();
     setupChannel();
 

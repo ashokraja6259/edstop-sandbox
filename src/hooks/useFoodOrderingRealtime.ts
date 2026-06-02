@@ -162,6 +162,7 @@ export function useFoodOrderingRealtime(
   }, [supabase]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch starts hook state from Supabase on mount
     fetchInitialData();
   }, [fetchInitialData]);
 
