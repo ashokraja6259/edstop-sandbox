@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Buffer } from 'node:buffer';
 import crypto from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateDarkStorePricing, type DarkStoreCartInputItem } from '@/lib/dark-store/pricing';
 
 interface VerifyDarkStorePaymentBody {
@@ -31,6 +32,8 @@ export async function POST(req: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
     }
+
+    const adminSupabase = createAdminClient();
 
     const body = (await req.json()) as VerifyDarkStorePaymentBody;
 
@@ -116,7 +119,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Payment order mismatch' }, { status: 400 });
     }
 
-    const { data: existingOrder, error: existingOrderError } = await supabase
+    const { data: existingOrder, error: existingOrderError } = await adminSupabase
       .from('orders')
       .select('id')
       .eq('payment_id', razorpayPaymentId)
@@ -138,7 +141,7 @@ export async function POST(req: Request) {
       price: item.price,
     }));
 
-    const { data: createdOrder, error: orderInsertError } = await supabase
+    const { data: createdOrder, error: orderInsertError } = await adminSupabase
       .from('orders')
       .insert({
         user_id: user.id,
@@ -172,7 +175,7 @@ export async function POST(req: Request) {
       total_price: item.totalPrice,
     }));
 
-    const { error: orderItemsError } = await supabase.from('order_items').insert(orderItemsPayload);
+    const { error: orderItemsError } = await adminSupabase.from('order_items').insert(orderItemsPayload);
 
     if (orderItemsError) {
       return NextResponse.json({ error: 'Failed to persist order items' }, { status: 500 });

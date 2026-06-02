@@ -1,6 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
+import "server-only";
+
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidTransition, OrderStatus } from "@/lib/orderStatusMachine";
-import { dispatchOrder } from "@/lib/dispatch/dispatchEngine";
 
 function getEventType(status: OrderStatus) {
   switch (status) {
@@ -26,7 +27,7 @@ export async function updateOrderStatus(
   newStatus: OrderStatus
 ) {
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   /* ================= GET CURRENT ORDER ================= */
 
@@ -77,19 +78,7 @@ export async function updateOrderStatus(
 
   /* ================= DISPATCH RIDER ================= */
 
-  if (newStatus === "ready") {
-
-    try {
-
-      await dispatchOrder(orderId);
-
-    } catch (err) {
-
-      console.error("Dispatch failed:", err);
-
-    }
-
-  }
+  // TODO: Re-enable automatic dispatch once batch_assign_orders and rider schema exist.
 
   /* ================= DELIVERY COMPLETION ================= */
 
