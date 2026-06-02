@@ -3,14 +3,63 @@ import { Buffer } from 'node:buffer';
 import crypto from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { calculateDarkStorePricing, type DarkStoreCartInputItem } from '@/lib/dark-store/pricing';
+import type { DarkStoreCalculatedItem } from '@/lib/dark-store/pricing';
 
 interface VerifyDarkStorePaymentBody {
   razorpayOrderId: string;
   razorpayPaymentId: string;
   razorpaySignature: string;
-  items: DarkStoreCartInputItem[];
-  promoCode?: string | null;
+}
+
+interface PaymentIntentRow {
+  id: string;
+  provider_order_id: string;
+  provider_payment_id: string | null;
+  amount_paise: number;
+  currency: string;
+  items: unknown;
+  promo_code: string | null;
+  status: string;
+}
+
+function parseStoredItems(items: unknown): DarkStoreCalculatedItem[] {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('Stored payment intent has no items');
+  }
+
+  return items.map((item) => {
+    if (!item || typeof item !== 'object') {
+      throw new Error('Stored payment intent has invalid items');
+    }
+
+    const record = item as Record<string, unknown>;
+    const id = typeof record.id === 'string' ? record.id : '';
+    const name = typeof record.name === 'string' ? record.name : '';
+    const quantity = Number(record.quantity);
+    const price = Number(record.price);
+    const totalPrice = Number(record.totalPrice);
+
+    if (
+      !id ||
+      !name ||
+      !Number.isFinite(quantity) ||
+      quantity < 1 ||
+      !Number.isFinite(price) ||
+      price < 0 ||
+      !Number.isFinite(totalPrice) ||
+      totalPrice < 0
+    ) {
+      throw new Error('Stored payment intent has invalid items');
+    }
+
+    return {
+      id,
+      name,
+      quantity,
+      price,
+      totalPrice,
+    };
+  });
 }
 
 export async function POST(req: Request) {
@@ -33,17 +82,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
     }
 
-    const adminSupabase = createAdminClient();
-
     const body = (await req.json()) as VerifyDarkStorePaymentBody;
 
-    const {
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature,
-      items,
-      promoCode = null,
-    } = body;
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
 
     if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
       return NextResponse.json({ error: 'Missing payment verification fields' }, { status: 400 });
@@ -58,33 +99,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 });
     }
 
-    const pricing = calculateDarkStorePricing(items);
-
-    let discountAmount = 0;
-    let appliedPromoCode: string | null = null;
-
-    if (promoCode) {
-      const { data: promoResult, error: promoError } = await supabase.rpc('validate_promo_code', {
-        p_code: promoCode,
-        p_order_amount: pricing.totalBeforeDiscount,
-        p_order_type: 'store',
-      });
-
-      if (promoError) {
-        return NextResponse.json({ error: 'Unable to validate promo code' }, { status: 400 });
-      }
-
-      if (!promoResult?.valid) {
-        return NextResponse.json({ error: promoResult?.error ?? 'Invalid promo code' }, { status: 400 });
-      }
-
-      discountAmount = Number(promoResult.discount) || 0;
-      appliedPromoCode = promoCode.toUpperCase();
-    }
-
-    const finalAmount = Math.max(0, pricing.totalBeforeDiscount - discountAmount);
-    const expectedAmountInPaise = Math.round(finalAmount * 100);
-
     const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
 
     const orderResponse = await fetch(`https://api.razorpay.com/v1/orders/${razorpayOrderId}`, {
@@ -97,10 +111,6 @@ export async function POST(req: Request) {
 
     if (!orderResponse.ok) {
       return NextResponse.json({ error: 'Unable to validate payment order' }, { status: 400 });
-    }
-
-    if (Number(razorpayOrder.amount) !== expectedAmountInPaise || razorpayOrder.currency !== 'INR') {
-      return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 });
     }
 
     const paymentResponse = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}`, {
@@ -119,6 +129,44 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Payment order mismatch' }, { status: 400 });
     }
 
+    const adminSupabase = createAdminClient();
+    const { data: paymentIntentData, error: paymentIntentError } = await adminSupabase
+      .from('payment_intents')
+      .select('id, provider_order_id, provider_payment_id, amount_paise, currency, items, promo_code, status')
+      .eq('provider_order_id', razorpayOrderId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (paymentIntentError) {
+      return NextResponse.json({ error: 'Unable to validate payment intent' }, { status: 500 });
+    }
+
+    const paymentIntent = paymentIntentData as PaymentIntentRow | null;
+
+    if (!paymentIntent) {
+      return NextResponse.json({ error: 'Payment intent not found' }, { status: 400 });
+    }
+
+    if (paymentIntent.status !== 'created' || paymentIntent.provider_payment_id) {
+      return NextResponse.json({ error: 'Payment intent has already been used' }, { status: 409 });
+    }
+
+    if (Number(razorpayOrder.amount) !== paymentIntent.amount_paise || razorpayOrder.currency !== paymentIntent.currency) {
+      return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 });
+    }
+
+    if (Number(paymentInfo.amount) !== paymentIntent.amount_paise || paymentInfo.currency !== paymentIntent.currency) {
+      return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 });
+    }
+
+    const storedItems = parseStoredItems(paymentIntent.items);
+    const subtotal = storedItems.reduce((sum, item) => sum + item.totalPrice, 0);
+    const deliveryFee = subtotal >= 99 ? 0 : 10;
+    const totalBeforeDiscount = subtotal + deliveryFee;
+    const finalAmount = paymentIntent.amount_paise / 100;
+    const discountAmount = Math.max(0, Math.round((totalBeforeDiscount - finalAmount) * 100) / 100);
+    const appliedPromoCode = paymentIntent.promo_code;
+
     const { data: existingOrder, error: existingOrderError } = await adminSupabase
       .from('orders')
       .select('id')
@@ -134,7 +182,7 @@ export async function POST(req: Request) {
     }
 
     const orderNumber = `DS${Date.now().toString().slice(-8)}`;
-    const checkoutItems = pricing.normalizedItems.map((item) => ({
+    const checkoutItems = storedItems.map((item) => ({
       id: item.id,
       name: item.name,
       quantity: item.quantity,
@@ -148,8 +196,8 @@ export async function POST(req: Request) {
         order_number: orderNumber,
         order_type: 'store',
         status: 'pending',
-        total_amount: pricing.totalBeforeDiscount,
-        delivery_fee: pricing.deliveryFee,
+        total_amount: totalBeforeDiscount,
+        delivery_fee: deliveryFee,
         discount_amount: discountAmount,
         promo_code: appliedPromoCode,
         promo_discount: discountAmount,
@@ -166,7 +214,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to persist order' }, { status: 500 });
     }
 
-    const orderItemsPayload = pricing.normalizedItems.map((item) => ({
+    const orderItemsPayload = storedItems.map((item) => ({
       order_id: createdOrder.id,
       item_id: item.id,
       item_name: item.name,
@@ -179,6 +227,19 @@ export async function POST(req: Request) {
 
     if (orderItemsError) {
       return NextResponse.json({ error: 'Failed to persist order items' }, { status: 500 });
+    }
+
+    const { error: intentUpdateError } = await adminSupabase
+      .from('payment_intents')
+      .update({
+        status: 'paid',
+        provider_payment_id: razorpayPaymentId,
+      })
+      .eq('id', paymentIntent.id)
+      .eq('status', 'created');
+
+    if (intentUpdateError) {
+      return NextResponse.json({ error: 'Failed to update payment intent' }, { status: 500 });
     }
 
     return NextResponse.json({

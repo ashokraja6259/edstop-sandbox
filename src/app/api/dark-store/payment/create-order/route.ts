@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Buffer } from 'node:buffer';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateDarkStorePricing, type DarkStoreCartInputItem } from '@/lib/dark-store/pricing';
 
 interface CreateDarkStorePaymentBody {
@@ -90,6 +91,24 @@ export async function POST(req: Request) {
         { error: razorpayOrder?.error?.description || 'Failed to create payment order' },
         { status: 500 }
       );
+    }
+
+    const adminSupabase = createAdminClient();
+    const { error: intentError } = await adminSupabase.from('payment_intents').insert({
+      user_id: user.id,
+      provider: 'razorpay',
+      provider_order_id: razorpayOrder.id,
+      order_type: 'store',
+      amount_paise: amountInPaise,
+      currency: 'INR',
+      items: pricing.normalizedItems,
+      promo_code: appliedPromoCode,
+      status: 'created',
+    });
+
+    if (intentError) {
+      console.error('Payment intent persistence failed:', intentError);
+      return NextResponse.json({ error: 'Failed to initialize payment verification' }, { status: 500 });
     }
 
     return NextResponse.json({
