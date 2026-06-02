@@ -17,6 +17,7 @@ import { useRetry } from '@/hooks/useRetry';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAICompanionRealtime } from '@/hooks/useAICompanionRealtime';
+import { useIsClient } from '@/hooks/useIsClient';
 import { supabase } from '@/lib/supabaseClient'; // ✅ FIXED
 
 interface Message {
@@ -35,9 +36,20 @@ interface ChatSession {
   isBookmarked: boolean;
 }
 
+const initialMessages: Message[] = [
+  {
+    id: 'msg-1',
+    role: 'assistant',
+    content:
+      "Hello! I'm your AI companion for IIT Kharagpur.\n\nHow can I assist you today?",
+    timestamp: 'Today',
+    isBookmarked: false,
+  },
+];
+
 const AICompanionInteractive = () => {
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const isHydrated = useIsClient();
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -73,21 +85,6 @@ const AICompanionInteractive = () => {
   });
 
   const toast = useToast();
-
-  useEffect(() => {
-    setIsHydrated(true);
-
-    setMessages([
-      {
-        id: 'msg-1',
-        role: 'assistant',
-        content:
-          "Hello! I'm your AI companion for IIT Kharagpur.\n\nHow can I assist you today?",
-        timestamp: 'Today',
-        isBookmarked: false,
-      },
-    ]);
-  }, []);
 
   useEffect(() => {
     if (isHydrated && messagesEndRef.current) {

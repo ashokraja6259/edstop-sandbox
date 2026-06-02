@@ -11,9 +11,10 @@ import { useRetry } from '@/hooks/useRetry';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWalletData } from '@/hooks/useWalletData';
+import { useIsClient } from '@/hooks/useIsClient';
 
 export default function WalletPage() {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [hasError, setHasError] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const { user } = useAuth();
@@ -31,7 +32,6 @@ export default function WalletPage() {
   const toast = useToast();
 
   useEffect(() => {
-    setIsHydrated(true);
     if (typeof window === 'undefined') return;
     const handleOnline = () => {
       setIsOffline(false);

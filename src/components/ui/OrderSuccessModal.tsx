@@ -25,6 +25,8 @@ interface OrderSuccessModalProps {
   promoDiscount?: number;
 }
 
+type OrderSuccessModalContentProps = Omit<OrderSuccessModalProps, 'isOpen'>;
+
 interface Particle {
   id: number;
   x: number;
@@ -56,6 +58,34 @@ const OrderSuccessModal = ({
   promoCode,
   promoDiscount = 0,
 }: OrderSuccessModalProps) => {
+  if (!isOpen) return null;
+
+  return (
+    <OrderSuccessModalContent
+      onClose={onClose}
+      orderType={orderType}
+      orderId={orderId}
+      items={items}
+      total={total}
+      paymentMethod={paymentMethod}
+      estimatedTime={estimatedTime}
+      promoCode={promoCode}
+      promoDiscount={promoDiscount}
+    />
+  );
+};
+
+const OrderSuccessModalContent = ({
+  onClose,
+  orderType,
+  orderId,
+  items,
+  total,
+  paymentMethod,
+  estimatedTime,
+  promoCode,
+  promoDiscount = 0,
+}: OrderSuccessModalContentProps) => {
   const [particles, setParticles] = useState<Particle[]>([]);
   const [showContent, setShowContent] = useState(false);
   const [checkAnimated, setCheckAnimated] = useState(false);
@@ -65,15 +95,6 @@ const OrderSuccessModal = ({
 
 
   useEffect(() => {
-    if (!isOpen) {
-      setShowContent(false);
-      setCheckAnimated(false);
-      setParticles([]);
-      particleStateRef.current = [];
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      return;
-    }
-
     // Stagger content reveal
     const t1 = setTimeout(() => setShowContent(true), 100);
     const t2 = setTimeout(() => setCheckAnimated(true), 300);
@@ -122,19 +143,7 @@ const OrderSuccessModal = ({
       clearTimeout(t3);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isOpen]);
-
-  const handleCopyOrderId = () => {
-    navigator.clipboard.writeText(orderId).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleTrackOrder = () => {
-    window.location.href = trackingUrl;
-  };
-
-  if (!isOpen) return null;
+  }, []);
 
   const isFood = orderType === 'food';
   const trackingUrl = `/orders/${orderId}`;
@@ -145,6 +154,16 @@ const OrderSuccessModal = ({
   const accentText = isFood ? 'text-orange-400' : 'text-purple-400';
   const borderAccent = isFood ? 'border-orange-500/30' : 'border-purple-500/30';
   const bgAccent = isFood ? 'bg-orange-500/10' : 'bg-purple-500/10';
+
+  const handleCopyOrderId = () => {
+    navigator.clipboard.writeText(orderId).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleTrackOrder = () => {
+    window.location.href = trackingUrl;
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface AICompanionCardProps {
   freeQuestionsRemaining: number;
@@ -21,11 +22,10 @@ const AICompanionCard = ({
   premiumQuestionsRemaining = 0,
   isLoading = false,
 }: AICompanionCardProps) => {
-  const [isHydrated, setIsHydrated] = useState(false);
+  const isHydrated = useIsClient();
   const [animateBar, setAnimateBar] = useState(false);
 
   useEffect(() => {
-    setIsHydrated(true);
     const timer = setTimeout(() => setAnimateBar(true), 300);
     return () => clearTimeout(timer);
   }, []);

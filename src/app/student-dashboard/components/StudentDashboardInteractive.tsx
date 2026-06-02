@@ -19,6 +19,7 @@ import { useRetry } from '@/hooks/useRetry';
 import { useToast } from '@/contexts/ToastContext';
 import { useRealtimeChannels } from '@/hooks/useRealtimeChannels';
 import { useAICompanionRealtime } from '@/hooks/useAICompanionRealtime';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface Service {
   id: string;
@@ -51,11 +52,19 @@ interface Stat {
   color: 'primary' | 'success' | 'accent' | 'warning';
 }
 
+const getGreetingState = () => {
+  const now = new Date();
+  const hours = now.getHours();
+  return {
+    currentTime: hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening',
+    greeting: hours < 12 ? '🌅' : hours < 17 ? '☀️' : '🌙',
+  };
+};
+
 const StudentDashboardInteractive = () => {
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [currentTime, setCurrentTime] = useState('');
+  const isHydrated = useIsClient();
+  const [{ currentTime, greeting }] = useState(getGreetingState);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [greeting, setGreeting] = useState('');
   const [isOffline, setIsOffline] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [authBootTimeout, setAuthBootTimeout] = useState(false);
@@ -88,18 +97,6 @@ const StudentDashboardInteractive = () => {
   useEffect(() => {
     const timer = setTimeout(() => setAuthBootTimeout(true), 8000);
     return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    setIsHydrated(true);
-    const updateTime = () => {
-      const now = new Date();
-      const hours = now.getHours();
-      const greet = hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening';
-      setCurrentTime(greet);
-      setGreeting(hours < 12 ? '🌅' : hours < 17 ? '☀️' : '🌙');
-    };
-    updateTime();
   }, []);
 
   useEffect(() => {

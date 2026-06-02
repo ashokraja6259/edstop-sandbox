@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
+import { useIsClient } from '@/hooks/useIsClient';
 
 interface PromoCode {
   id: string;
@@ -188,21 +189,20 @@ const formatCountdown = (ms: number): string => {
   return `${minutes}m left`;
 };
 
+const getInitialCountdowns = () => {
+  const initial: Record<string, number> = {};
+  seasonalOffers.forEach(o => {
+    if (o.endsInMs > 0) initial[o.id] = o.endsInMs;
+  });
+  return initial;
+};
+
 export default function PromotionsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [activeTab, setActiveTab] = useState<'promo' | 'referral' | 'seasonal'>('promo');
-  const [countdowns, setCountdowns] = useState<Record<string, number>>({});
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-    const initial: Record<string, number> = {};
-    seasonalOffers.forEach(o => {
-      if (o.endsInMs > 0) initial[o.id] = o.endsInMs;
-    });
-    setCountdowns(initial);
-  }, []);
+  const [countdowns, setCountdowns] = useState<Record<string, number>>(getInitialCountdowns);
+  const isHydrated = useIsClient();
 
   useEffect(() => {
     if (!isHydrated) return;

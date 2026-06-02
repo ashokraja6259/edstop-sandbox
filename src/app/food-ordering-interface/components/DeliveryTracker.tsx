@@ -2,7 +2,6 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import type { DeliveryUpdate } from '@/hooks/useDeliveryTracking';
 import { DELIVERY_STATUS_CONFIG, DARK_STORE_STEPS } from '@/hooks/useDeliveryTracking';
@@ -34,15 +33,6 @@ const STATUS_BG: Record<string, string> = {
 };
 
 const DeliveryTracker = ({ delivery, onDismiss, className = '' }: DeliveryTrackerProps) => {
-  const [pulse, setPulse] = useState(false);
-
-  // Pulse animation on status change
-  useEffect(() => {
-    setPulse(true);
-    const t = setTimeout(() => setPulse(false), 1000);
-    return () => clearTimeout(t);
-  }, [delivery.status]);
-
   const config = DELIVERY_STATUS_CONFIG[delivery.status];
   const currentStep = config?.step ?? 0;
   const isCancelled = delivery.status === 'cancelled';
@@ -81,7 +71,13 @@ const DeliveryTracker = ({ delivery, onDismiss, className = '' }: DeliveryTracke
           {/* Live badge */}
           {isActive && (
             <span className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 border border-primary/30 rounded-full">
-              <span className={`w-1.5 h-1.5 rounded-full bg-primary ${pulse ? 'animate-ping' : 'animate-pulse'}`} />
+              <span className="relative flex h-1.5 w-1.5">
+                <span
+                  key={delivery.status}
+                  className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-[ping_1s_cubic-bezier(0,0,0.2,1)_1]"
+                />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              </span>
               <span className="font-caption text-xs text-primary font-medium">LIVE</span>
             </span>
           )}
