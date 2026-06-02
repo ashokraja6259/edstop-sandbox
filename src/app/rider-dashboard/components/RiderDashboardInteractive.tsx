@@ -238,6 +238,7 @@ const RiderDashboardInteractive = () => {
         liveCompletedOrders.length > 0;
 
       if (hasLiveData) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- sync live rider data into local optimistic state after the realtime hook finishes loading
         setLocalActiveOrders(liveActiveOrders as Order[]);
         setLocalCompletedOrders(liveCompletedOrders as Order[]);
         setLocalBatchDeliveries(liveBatchDeliveries as BatchDeliveryGroup[]);
@@ -257,6 +258,7 @@ const RiderDashboardInteractive = () => {
   // ── Keep local state in sync with live updates after initial load ─────────
   useEffect(() => {
     if (useLiveData && !isLiveLoading) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- keep local optimistic state aligned with realtime updates
       setLocalActiveOrders(liveActiveOrders as Order[]);
       setLocalCompletedOrders(liveCompletedOrders as Order[]);
       setLocalBatchDeliveries(liveBatchDeliveries as BatchDeliveryGroup[]);
