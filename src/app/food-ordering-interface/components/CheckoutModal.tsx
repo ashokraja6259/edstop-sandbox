@@ -32,8 +32,7 @@ const CheckoutModal = ({
 
   const supabase = useMemo(() => createClient(), []);
 
-  const [paymentMethod, setPaymentMethod] =
-    useState<'razorpay' | 'cod'>('razorpay');
+  const paymentMethod = 'cod' as const;
 
   const [walletAmount, setWalletAmount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -198,20 +197,20 @@ const CheckoutModal = ({
 
           <div className="space-y-2">
 
-            <label className="flex items-center gap-2 text-sm text-slate-300">
+            <label className="flex items-center gap-2 text-sm text-slate-500">
               <input
                 type="radio"
-                checked={paymentMethod === 'razorpay'}
-                onChange={() => setPaymentMethod('razorpay')}
+                checked={false}
+                disabled
               />
-              Razorpay (UPI/Card)
+              Online payment coming soon
             </label>
 
             <label className="flex items-center gap-2 text-sm text-slate-300">
               <input
                 type="radio"
                 checked={paymentMethod === 'cod'}
-                onChange={() => setPaymentMethod('cod')}
+                readOnly
               />
               Cash on Delivery
             </label>
