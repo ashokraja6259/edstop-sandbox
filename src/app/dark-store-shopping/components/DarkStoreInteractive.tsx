@@ -36,30 +36,6 @@ interface Category {
   count: number;
 }
 
-
-interface RazorpayCheckoutOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  handler: (response: {
-    razorpay_order_id: string;
-    razorpay_payment_id: string;
-    razorpay_signature: string;
-  }) => void;
-  prefill?: { name?: string; email?: string; contact?: string };
-  theme?: { color?: string };
-  modal?: { ondismiss?: () => void };
-}
-
-declare global {
-  interface Window {
-    Razorpay?: new (options: RazorpayCheckoutOptions) => { open: () => void };
-  }
-}
-
 interface CartItem {
   id: string;
   name: string;
@@ -69,24 +45,10 @@ interface CartItem {
   alt: string;
 }
 
-
-const loadRazorpayScript = async () => {
-  if (typeof window === 'undefined') return false;
-  if (window.Razorpay) return true;
-
-  return new Promise<boolean>((resolve) => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-};
-
 const DarkStoreInteractive = () => {
   const supabase = useMemo(() => createSupabaseClient(), []);
   const isHydrated = useIsClient();
+
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'price-low' | 'price-high' | 'popularity' | 'availability'>('popularity');
@@ -97,8 +59,15 @@ const DarkStoreInteractive = () => {
   const [errorType, setErrorType] = useState<'api' | 'network' | 'generic'>('generic');
   const [, setIsOnline] = useState(true);
   const [orderSuccess, setOrderSuccess] = useState(false);
-  const [orderDetails, setOrderDetails] = useState<{ orderId: string; total: number; items: { name: string; quantity: number; price: number }[]; promoCode?: string; promoDiscount?: number } | null>(null);
+  const [orderDetails, setOrderDetails] = useState<{
+    orderId: string;
+    total: number;
+    items: { name: string; quantity: number; price: number }[];
+    promoCode?: string;
+    promoDiscount?: number;
+  } | null>(null);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
 
   const { retry, manualRetry, reset, isRetrying, retryCount, nextRetryIn, maxRetriesReached } = useRetry({
     maxRetries: 3,
@@ -121,22 +90,26 @@ const DarkStoreInteractive = () => {
         setErrorType('generic');
       }
     };
+
     const handleOffline = () => {
       setIsOnline(false);
       setHasError(true);
       setErrorType('network');
       retry();
     };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [hasError, errorType, retry, reset]);
 
   const handleRetry = () => {
     manualRetry(true);
   };
-
-  const [walletBalance, setWalletBalance] = useState(450.0);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -150,8 +123,8 @@ const DarkStoreInteractive = () => {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (!cancelled && data?.balance !== undefined && data?.balance !== null) {
-        setWalletBalance(Number(data.balance));
+      if (!cancelled) {
+        setWalletBalance(data?.balance !== undefined && data?.balance !== null ? Number(data.balance) : 0);
       }
     };
 
@@ -163,52 +136,48 @@ const DarkStoreInteractive = () => {
   }, [supabase, user?.id]);
 
   const categories: Category[] = [
-  { id: 'all', name: 'All Items', icon: 'ShoppingBagIcon', count: 24 },
-  { id: 'snacks', name: 'Snacks', icon: 'CakeIcon', count: 8 },
-  { id: 'beverages', name: 'Beverages', icon: 'BeakerIcon', count: 6 },
-  { id: 'stationery', name: 'Stationery', icon: 'PencilIcon', count: 5 },
-  { id: 'essentials', name: 'Essentials', icon: 'SparklesIcon', count: 5 }];
-
+    { id: 'all', name: 'All Items', icon: 'ShoppingBagIcon', count: 24 },
+    { id: 'snacks', name: 'Snacks', icon: 'CakeIcon', count: 8 },
+    { id: 'beverages', name: 'Beverages', icon: 'BeakerIcon', count: 6 },
+    { id: 'stationery', name: 'Stationery', icon: 'PencilIcon', count: 5 },
+    { id: 'essentials', name: 'Essentials', icon: 'SparklesIcon', count: 5 },
+  ];
 
   const products: Product[] = DARK_STORE_PRODUCTS;
 
-
-
-
-  // Build mock stock map for the realtime hook
   const mockStockMap = useMemo(() => {
     const map: Record<string, number> = {};
-    products.forEach((p) => { map[p.id] = p.stock; });
+    products.forEach((product) => {
+      map[product.id] = product.stock;
+    });
     return map;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Supabase real-time: live stock + delivery tracking ────────────────────
   const { liveStockMap, activeDelivery, isLoadingDelivery } = useDarkStoreRealtime(
     user?.id,
     activeOrderId,
     mockStockMap
   );
 
-  // Merge live stock overrides into products
   const productsWithLiveStock = useMemo(() => {
-    return products.map((p) => ({
-      ...p,
-      stock: liveStockMap[p.id] !== undefined ? liveStockMap[p.id] : p.stock,
+    return products.map((product) => ({
+      ...product,
+      stock: liveStockMap[product.id] !== undefined ? liveStockMap[product.id] : product.stock,
     }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveStockMap]);
 
   const getFilteredAndSortedProducts = () => {
     let filtered = productsWithLiveStock;
 
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter((p) => p.category === selectedCategory);
+      filtered = filtered.filter((product) => product.category === selectedCategory);
     }
 
     if (searchQuery) {
-      filtered = filtered.filter((p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter((product) =>
+        product.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -235,9 +204,14 @@ const DarkStoreInteractive = () => {
   const filteredProducts = getFilteredAndSortedProducts();
 
   const cartItems: CartItem[] = Object.entries(cart)
-    .filter(([, qty]) => qty > 0)
+    .filter(([, quantity]) => quantity > 0)
     .map(([id, quantity]) => {
-      const product = productsWithLiveStock.find(p => p.id === id)!;
+      const product = productsWithLiveStock.find((item) => item.id === id);
+
+      if (!product) {
+        return null;
+      }
+
       return {
         id: product.id,
         name: product.name,
@@ -246,119 +220,108 @@ const DarkStoreInteractive = () => {
         image: product.image,
         alt: product.alt,
       };
-    });
+    })
+    .filter((item): item is CartItem => item !== null);
 
-  const totalCartItems = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
+  const totalCartItems = Object.values(cart).reduce((sum, quantity) => sum + quantity, 0);
 
   const handleAddToCart = (productId: string) => {
-    setCart(prev => ({ ...prev, [productId]: (prev[productId] || 0) + 1 }));
-    const product = productsWithLiveStock.find(p => p.id === productId);
-    if (product) toast.success('Added to cart', `${product.name} added`);
+    const product = productsWithLiveStock.find((item) => item.id === productId);
+
+    if (!product) return;
+
+    if (product.stock <= 0) {
+      toast.error('Out of stock', `${product.name} is not available right now.`);
+      return;
+    }
+
+    setCart((prev) => {
+      const nextQuantity = (prev[productId] || 0) + 1;
+
+      if (nextQuantity > product.stock) {
+        toast.error('Stock limit reached', `Only ${product.stock} units available.`);
+        return prev;
+      }
+
+      return { ...prev, [productId]: nextQuantity };
+    });
+
+    toast.success('Added to cart', `${product.name} added`);
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
+    const product = productsWithLiveStock.find((item) => item.id === productId);
+
     if (quantity <= 0) {
-      setCart(prev => { const next = { ...prev }; delete next[productId]; return next; });
-    } else {
-      setCart(prev => ({ ...prev, [productId]: quantity }));
+      setCart((prev) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+      return;
     }
+
+    if (product && quantity > product.stock) {
+      toast.error('Stock limit reached', `Only ${product.stock} units available.`);
+      return;
+    }
+
+    setCart((prev) => ({ ...prev, [productId]: quantity }));
   };
 
   const handleRemoveItem = (productId: string) => {
-    setCart(prev => { const next = { ...prev }; delete next[productId]; return next; });
+    setCart((prev) => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
   };
-
 
   const handleCheckout = async (promoCode?: string) => {
     try {
       setIsCheckingOut(true);
 
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded || !window.Razorpay) {
-        throw new Error('Unable to load payment gateway. Please try again.');
+      if (!cartItems.length) {
+        throw new Error('Your cart is empty.');
       }
 
-      const paymentInitResponse = await fetch('/api/dark-store/payment/create-order', {
+      const response = await fetch('/api/dark-store/cod/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
+          items: cartItems.map((item) => ({
+            id: item.id,
+            quantity: item.quantity,
+          })),
           promoCode: promoCode ?? null,
         }),
       });
 
-      const paymentInitData = await paymentInitResponse.json();
+      const data = await response.json();
 
-      if (!paymentInitResponse.ok) {
-        throw new Error(paymentInitData?.error || 'Failed to initialize payment');
+      if (!response.ok) {
+        throw new Error(data?.error || 'Failed to place order');
       }
 
-      const razorpay = new window.Razorpay({
-        key: paymentInitData.keyId,
-        amount: paymentInitData.amount,
-        currency: paymentInitData.currency,
-        name: 'EdStop Dark Store',
-        description: 'Campus essentials checkout',
-        order_id: paymentInitData.razorpayOrderId,
-        prefill: {
-          email: user?.email,
-          contact: user?.phone,
-        },
-        theme: {
-          color: '#6d28d9',
-        },
-        modal: {
-          ondismiss: () => {
-            setIsCheckingOut(false);
-          },
-        },
-        handler: async (response) => {
-          try {
-            const verifyResponse = await fetch('/api/dark-store/payment/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                razorpayOrderId: response.razorpay_order_id,
-                razorpayPaymentId: response.razorpay_payment_id,
-                razorpaySignature: response.razorpay_signature,
-                items: cartItems.map((item) => ({ id: item.id, quantity: item.quantity })),
-                promoCode: paymentInitData.promoCode ?? null,
-              }),
-            });
-
-            const verifyData = await verifyResponse.json();
-
-            if (!verifyResponse.ok) {
-              throw new Error(verifyData?.error || 'Payment verification failed');
-            }
-
-            setOrderDetails({
-              orderId: verifyData.orderId,
-              total: verifyData.finalAmount,
-              items: verifyData.items,
-              promoCode: verifyData.promoCode,
-              promoDiscount: verifyData.promoDiscount,
-            });
-            setOrderSuccess(true);
-            setCart({});
-            setActiveOrderId(verifyData.orderNumber ?? null);
-            toast.success('Order placed!', `Order #${verifyData.orderNumber} confirmed. Delivery in 10-20 min`);
-          } catch (error: unknown) {
-            toast.error('Payment verification failed', error instanceof Error ? error.message : 'Please contact support.');
-          } finally {
-            setIsCheckingOut(false);
-          }
-        },
+      setOrderDetails({
+        orderId: data.orderId,
+        total: data.finalAmount,
+        items: data.items,
+        promoCode: data.promoCode,
+        promoDiscount: data.promoDiscount,
       });
 
-      razorpay.open();
+      setOrderSuccess(true);
+      setCart({});
+      setActiveOrderId(data.orderNumber ?? null);
+      setIsCartOpen(false);
+      toast.success('Order placed!', `Order #${data.orderNumber} confirmed. Pay by cash on delivery.`);
     } catch (error: unknown) {
-      setIsCheckingOut(false);
       toast.error('Checkout failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -372,16 +335,17 @@ const DarkStoreInteractive = () => {
           </div>
         </div>
         <div className="container mx-auto px-4 py-6 max-w-6xl">
-          {/* Skeleton category filter */}
           <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-            {[1,2,3,4,5].map(i => <div key={i} className="animate-pulse h-9 bg-white/10 rounded-full w-24 flex-shrink-0"></div>)}
+            {[1, 2, 3, 4, 5].map((item) => (
+              <div key={item} className="animate-pulse h-9 bg-white/10 rounded-full w-24 flex-shrink-0"></div>
+            ))}
           </div>
-          {/* Skeleton search bar */}
+
           <div className="animate-pulse h-11 bg-white/5 rounded-xl mb-6"></div>
-          {/* Skeleton product grid */}
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {[1,2,3,4,5,6,7,8].map(i => (
-              <div key={i} className="glass-card rounded-2xl overflow-hidden border border-white/10">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
+              <div key={item} className="glass-card rounded-2xl overflow-hidden border border-white/10">
                 <div className="animate-pulse h-36 bg-white/10"></div>
                 <div className="p-3 space-y-2">
                   <div className="animate-pulse h-4 bg-white/10 rounded w-full"></div>
@@ -405,12 +369,15 @@ const DarkStoreInteractive = () => {
         <div className="sticky top-0 z-50 glass-strong border-b border-white/10">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-xl text-white">Ed<span className="text-blue-400">Stop</span></span>
+              <span className="font-bold text-xl text-white">
+                Ed<span className="text-blue-400">Stop</span>
+              </span>
               <span className="text-xs text-white/40">Dark Store</span>
             </div>
             <div className="text-sm text-white/60">₹{walletBalance.toFixed(0)} EdCoins</div>
           </div>
         </div>
+
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-md">
             <ErrorFallback
@@ -431,14 +398,18 @@ const DarkStoreInteractive = () => {
 
   return (
     <div className="min-h-screen bg-background relative overflow-x-hidden">
-      {/* Floating background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-purple-600/10 blur-3xl animate-orb-float" />
-        <div className="absolute top-60 right-20 w-96 h-96 rounded-full bg-indigo-600/8 blur-3xl animate-orb-float" style={{animationDelay: '2s'}} />
-        <div className="absolute bottom-40 left-1/3 w-80 h-80 rounded-full bg-pink-600/8 blur-3xl animate-orb-float" style={{animationDelay: '4s'}} />
+        <div
+          className="absolute top-60 right-20 w-96 h-96 rounded-full bg-indigo-600/8 blur-3xl animate-orb-float"
+          style={{ animationDelay: '2s' }}
+        />
+        <div
+          className="absolute bottom-40 left-1/3 w-80 h-80 rounded-full bg-pink-600/8 blur-3xl animate-orb-float"
+          style={{ animationDelay: '4s' }}
+        />
       </div>
 
-      {/* Header */}
       <header className="sticky top-0 z-40 glass-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
@@ -451,11 +422,15 @@ const DarkStoreInteractive = () => {
                 <p className="font-caption text-xs text-text-secondary">IIT KGP Campus Delivery</p>
               </div>
             </div>
+
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex items-center gap-2 px-3 py-2 glass-neon rounded-xl">
                 <Icon name="WalletIcon" size={16} className="text-primary" />
-                <span className="font-data font-bold text-sm text-gradient-purple">₹{walletBalance.toFixed(0)}</span>
+                <span className="font-data font-bold text-sm text-gradient-purple">
+                  ₹{walletBalance.toFixed(0)}
+                </span>
               </div>
+
               <button
                 onClick={() => setIsCartOpen(true)}
                 className="relative flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl text-white font-heading font-semibold text-sm shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all duration-300 press-scale btn-glow"
@@ -474,36 +449,44 @@ const DarkStoreInteractive = () => {
       </header>
 
       <div className="relative z-10 flex">
-        {/* Main Content */}
         <main className="flex-1 max-w-full lg:max-w-[calc(100%-24rem)] px-4 sm:px-6 lg:px-8 py-8">
-          {/* Hero Banner */}
           <div className="relative overflow-hidden rounded-2xl mb-8 p-6 bg-gradient-to-r from-purple-900/80 via-indigo-900/80 to-purple-900/80 border border-primary/30 animate-slide-up">
             <div className="absolute inset-0 bg-animated-gradient opacity-20 rounded-2xl" />
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-2xl animate-float">⚡</span>
-                <span className="font-caption text-xs font-bold text-purple-300 uppercase tracking-widest">Lightning Fast Delivery</span>
+                <span className="font-caption text-xs font-bold text-purple-300 uppercase tracking-widest">
+                  Lightning Fast Delivery
+                </span>
               </div>
+
               <h2 className="font-heading font-bold text-2xl text-white mb-1">
                 Campus Store, <span className="text-gradient-purple">Delivered Fast</span>
               </h2>
-              <p className="font-body text-sm text-purple-200/80">Snacks, beverages, stationery & essentials — delivered to your hostel in minutes</p>
+
+              <p className="font-body text-sm text-purple-200/80">
+                Snacks, beverages, stationery & essentials — delivered to your hostel in minutes
+              </p>
+
               <div className="flex items-center gap-4 mt-3">
                 <div className="flex items-center gap-1">
                   <span className="text-yellow-400">⭐</span>
                   <span className="font-caption text-xs text-white/80">Free delivery above ₹99</span>
                 </div>
+
                 <div className="flex items-center gap-1">
-                  <span className="text-green-400">💰</span>
-                  <span className="font-caption text-xs text-white/80">5% EdCoins cashback</span>
+                  <span className="text-green-400">💵</span>
+                  <span className="font-caption text-xs text-white/80">Cash on delivery enabled</span>
                 </div>
               </div>
             </div>
-            <div className="absolute right-6 top-1/2 -translate-y-1/2 text-6xl animate-float opacity-30">🛒</div>
+
+            <div className="absolute right-6 top-1/2 -translate-y-1/2 text-6xl animate-float opacity-30">
+              🛒
+            </div>
           </div>
 
-          {/* Category Filter */}
-          <div className="mb-6 animate-slide-up" style={{animationDelay: '0.1s'}}>
+          <div className="mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
             <CategoryFilter
               categories={categories}
               selectedCategory={selectedCategory}
@@ -511,8 +494,7 @@ const DarkStoreInteractive = () => {
             />
           </div>
 
-          {/* Search and Sort */}
-          <div className="mb-6 animate-slide-up" style={{animationDelay: '0.2s'}}>
+          <div className="mb-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
             <SearchAndSort
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -521,29 +503,39 @@ const DarkStoreInteractive = () => {
             />
           </div>
 
-          {/* Results count */}
           <div className="flex items-center justify-between mb-4 animate-fade-in">
             <p className="font-caption text-sm text-text-secondary">
               <span className="text-primary font-bold">{filteredProducts.length}</span> products found
             </p>
             {searchQuery && (
-              <span className="font-caption text-xs text-primary">Searching: &quot;{searchQuery}&quot;</span>
+              <span className="font-caption text-xs text-primary">
+                Searching: &quot;{searchQuery}&quot;
+              </span>
             )}
           </div>
 
           {activeOrderId && !orderSuccess && (
             <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4">
               <p className="text-sm font-semibold text-white">Recent Dark Store order: #{activeOrderId}</p>
-              <p className="mt-1 text-xs text-white/70">You can track updates below or return to dashboard anytime.</p>
+              <p className="mt-1 text-xs text-white/70">
+                You can track updates below or return to dashboard anytime.
+              </p>
+
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  onClick={() => { window.location.href = '/student-dashboard'; }}
+                  onClick={() => {
+                    window.location.href = '/student-dashboard';
+                  }}
                   className="rounded-md border border-white/20 px-3 py-1.5 text-xs text-white hover:bg-white/10"
                 >
                   Back to Dashboard
                 </button>
+
                 <button
-                  onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategory('all');
+                  }}
                   className="rounded-md border border-white/20 px-3 py-1.5 text-xs text-white hover:bg-white/10"
                 >
                   Continue Shopping
@@ -552,7 +544,6 @@ const DarkStoreInteractive = () => {
             </div>
           )}
 
-          {/* Network/API Error Banner */}
           {hasError && (
             <ErrorFallback
               type={errorType}
@@ -566,15 +557,21 @@ const DarkStoreInteractive = () => {
             />
           )}
 
-          {/* Products Grid */}
           {!hasError && filteredProducts.length === 0 ? (
             searchQuery || selectedCategory !== 'all' ? (
               <EmptyState
                 icon="🔍"
                 title="No products found"
-                description={searchQuery ? `No results for "${searchQuery}". Try a different search term or category.` : 'No products in this category right now.'}
+                description={
+                  searchQuery
+                    ? `No results for "${searchQuery}". Try a different search term or category.`
+                    : 'No products in this category right now.'
+                }
                 actionLabel={searchQuery ? 'Clear Search' : 'View All'}
-                onAction={() => { setSearchQuery(''); setSelectedCategory('all'); }}
+                onAction={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('all');
+                }}
               />
             ) : (
               <EmptyState
@@ -586,7 +583,10 @@ const DarkStoreInteractive = () => {
           ) : !hasError ? (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredProducts.map((product, index) => (
-                <div key={product.id} className={`animate-slide-up stagger-${Math.min((index % 6) + 1, 6)}`}>
+                <div
+                  key={product.id}
+                  className={`animate-slide-up stagger-${Math.min((index % 6) + 1, 6)}`}
+                >
                   <ProductCard
                     product={product}
                     cartQuantity={cart[product.id] || 0}
@@ -599,15 +599,11 @@ const DarkStoreInteractive = () => {
           ) : null}
         </main>
 
-        {/* Cart Sidebar - Desktop */}
         <div className="hidden lg:block w-96 flex-shrink-0">
-          {/* Live Delivery Tracker */}
           <div className="sticky top-20 px-4 pt-8">
-            <DarkStoreDeliveryTracker
-              delivery={activeDelivery}
-              isLoading={isLoadingDelivery}
-            />
+            <DarkStoreDeliveryTracker delivery={activeDelivery} isLoading={isLoadingDelivery} />
           </div>
+
           <ShoppingCart
             items={cartItems}
             walletBalance={walletBalance}
@@ -621,7 +617,6 @@ const DarkStoreInteractive = () => {
         </div>
       </div>
 
-      {/* Mobile Cart */}
       <div className="lg:hidden">
         <ShoppingCart
           items={cartItems}
@@ -638,12 +633,15 @@ const DarkStoreInteractive = () => {
       {orderDetails && (
         <OrderSuccessModal
           isOpen={orderSuccess}
-          onClose={() => { setOrderSuccess(false); setOrderDetails(null); }}
+          onClose={() => {
+            setOrderSuccess(false);
+            setOrderDetails(null);
+          }}
           orderType="darkstore"
           orderId={orderDetails.orderId}
           items={orderDetails.items}
           total={orderDetails.total}
-          paymentMethod="razorpay"
+          paymentMethod="cod"
           estimatedTime="10-20 min"
           promoCode={orderDetails.promoCode}
           promoDiscount={orderDetails.promoDiscount}
