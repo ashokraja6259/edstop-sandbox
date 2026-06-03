@@ -69,12 +69,14 @@ export async function POST(req: Request) {
         status: 'pending',
         total_amount: pricing.totalBeforeDiscount,
         delivery_fee: pricing.deliveryFee,
+        tax_amount: 0,
         discount_amount: discountAmount,
         promo_code: appliedPromoCode,
         promo_discount: discountAmount,
         final_amount: finalAmount,
         payment_method: 'cod',
         payment_id: null,
+        wallet_used: 0,
         items: checkoutItems,
         notes: null,
       })
@@ -82,13 +84,21 @@ export async function POST(req: Request) {
       .single();
 
     if (orderInsertError || !createdOrder) {
-      console.error('Dark-store COD order insert failed:', orderInsertError);
-      return NextResponse.json({ error: 'Failed to create dark-store order' }, { status: 500 });
+      console.error('Dark-store COD order insert failed:', JSON.stringify(orderInsertError, null, 2));
+      return NextResponse.json(
+        {
+          error: 'Failed to create dark-store order',
+          details: orderInsertError?.message,
+          code: orderInsertError?.code,
+          hint: orderInsertError?.hint,
+        },
+        { status: 500 }
+      );
     }
 
     const orderItemsPayload = pricing.normalizedItems.map((item) => ({
       order_id: createdOrder.id,
-      item_id: item.id,
+      menu_item_id: null,
       item_name: item.name,
       quantity: item.quantity,
       price: item.price,
@@ -100,11 +110,19 @@ export async function POST(req: Request) {
       .insert(orderItemsPayload);
 
     if (orderItemsError) {
-      console.error('Dark-store COD order items insert failed:', orderItemsError);
-      return NextResponse.json({ error: 'Failed to save dark-store order items' }, { status: 500 });
+      console.error('Dark-store COD order items insert failed:', JSON.stringify(orderItemsError, null, 2));
+      return NextResponse.json(
+        {
+          error: 'Failed to save dark-store order items',
+          details: orderItemsError.message,
+          code: orderItemsError.code,
+          hint: orderItemsError.hint,
+        },
+        { status: 500 }
+      );
     }
 
-    await adminSupabase.from('order_events').insert({
+    const { error: orderEventError } = await adminSupabase.from('order_events').insert({
       order_id: createdOrder.id,
       event_type: 'ORDER_CREATED',
       old_status: null,
@@ -114,6 +132,10 @@ export async function POST(req: Request) {
         order_type: 'store',
       },
     });
+
+    if (orderEventError) {
+      console.error('Dark-store COD order event insert failed:', JSON.stringify(orderEventError, null, 2));
+    }
 
     return NextResponse.json({
       success: true,
@@ -125,6 +147,7 @@ export async function POST(req: Request) {
       promoDiscount: discountAmount || undefined,
     });
   } catch (error: unknown) {
+    console.error('Dark-store COD create-order fatal error:', error);
     const message = error instanceof Error ? error.message : 'Failed to create dark-store COD order';
     return NextResponse.json({ error: message }, { status: 500 });
   }
