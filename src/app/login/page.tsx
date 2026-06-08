@@ -1,13 +1,16 @@
-// FILE: src/app/login/page.tsx
-
 'use client';
 
-import React from 'react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLogo from '@/components/ui/AppLogo';
 
 type AuthMode = 'email' | 'phone';
+
+const inputClassName =
+  'w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500';
+
+const smallInputClassName =
+  'w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-black placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500';
 
 export default function LoginPage() {
   const [authMode, setAuthMode] = useState<AuthMode>('email');
@@ -44,23 +47,33 @@ export default function LoginPage() {
     }
   }, [authLoading, user]);
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const isIitKgpEmail = (value: string) =>
+    /@(iitkgp\.ac\.in|kgpian\.iitkgp\.ac\.in)$/i.test(value.trim());
+
+  const handleEmailSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
     setSuccess('');
 
-    if (!email || !password) {
-      setError('Please fill in all required fields');
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
+      setError('Please fill in all required fields.');
       return;
     }
 
-    if (isSignUp && !fullName) {
-      setError('Please enter your full name');
+    if (isSignUp && !fullName.trim()) {
+      setError('Please enter your full name.');
+      return;
+    }
+
+    if (isSignUp && !isIitKgpEmail(normalizedEmail)) {
+      setError('Please use your IIT Kharagpur email address.');
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Password must be at least 6 characters.');
       return;
     }
 
@@ -68,13 +81,13 @@ export default function LoginPage() {
       setLoading(true);
 
       if (isSignUp) {
-        await signUp(email, password);
-        setSuccess('Account created! Please check your email to verify your account.');
+        await signUp(normalizedEmail, password);
+        setSuccess('Account created! Please check your IIT KGP email to verify your account.');
         setEmail('');
         setPassword('');
         setFullName('');
       } else {
-        await signIn(email, password);
+        await signIn(normalizedEmail, password);
         window.location.assign('/student-dashboard');
       }
     } catch (err: unknown) {
@@ -89,14 +102,16 @@ export default function LoginPage() {
     setError('');
     setSuccess('');
 
-    if (!forgotEmail) {
+    const normalizedEmail = forgotEmail.trim().toLowerCase();
+
+    if (!normalizedEmail) {
       setError('Enter your email to reset password.');
       return;
     }
 
     try {
       setLoading(true);
-      await resetPassword(forgotEmail);
+      await resetPassword(normalizedEmail);
       setSuccess('Password reset link sent. Please check your inbox.');
       setShowForgotPassword(false);
       setForgotEmail('');
@@ -107,12 +122,12 @@ export default function LoginPage() {
     }
   };
 
-  const handlePhoneOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePhoneOtpSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
     setSuccess('');
 
-    if (!phone) {
+    if (!phone.trim()) {
       setError('Please enter your phone number.');
       return;
     }
@@ -121,18 +136,18 @@ export default function LoginPage() {
       setLoading(true);
 
       if (!otpSent) {
-        await signInWithPhoneOtp(phone);
+        await signInWithPhoneOtp(phone.trim());
         setOtpSent(true);
         setSuccess('OTP sent to your phone number.');
         return;
       }
 
-      if (!otp) {
+      if (!otp.trim()) {
         setError('Please enter the OTP.');
         return;
       }
 
-      await verifyPhoneOtp(phone, otp);
+      await verifyPhoneOtp(phone.trim(), otp.trim());
       window.location.assign('/student-dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Phone OTP login failed.');
@@ -141,19 +156,26 @@ export default function LoginPage() {
     }
   };
 
+  const resetMessages = () => {
+    setError('');
+    setSuccess('');
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-8">
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl">
         <div className="text-center">
           <div className="flex justify-center mb-4">
             <AppLogo className="h-12 w-12" />
           </div>
+
           <h1 className="text-3xl font-bold text-gray-900">Welcome to EdStop</h1>
+
           <p className="mt-2 text-sm text-gray-600" id="form-description">
             {authMode === 'phone'
               ? 'Sign in using phone OTP'
               : isSignUp
-                ? 'Create your account'
+                ? 'Create your IIT Kharagpur student account'
                 : 'Sign in to access your account'}
           </p>
         </div>
@@ -163,57 +185,118 @@ export default function LoginPage() {
             type="button"
             onClick={() => {
               setAuthMode('email');
-              setError('');
-              setSuccess('');
+              resetMessages();
             }}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${authMode === 'email' ? 'bg-indigo-600 text-white' : 'text-gray-700'}`}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
+              authMode === 'email' ? 'bg-indigo-600 text-white' : 'text-gray-700'
+            }`}
           >
             Email
           </button>
+
           <button
             type="button"
             onClick={() => {
               setAuthMode('phone');
               setIsSignUp(false);
               setShowForgotPassword(false);
-              setError('');
-              setSuccess('');
+              resetMessages();
             }}
-            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${authMode === 'phone' ? 'bg-indigo-600 text-white' : 'text-gray-700'}`}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
+              authMode === 'phone' ? 'bg-indigo-600 text-white' : 'text-gray-700'
+            }`}
           >
             Phone OTP
           </button>
         </div>
 
         {error && (
-          <div role="alert" aria-live="assertive" aria-atomic="true" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm" id="form-error">
-            <span className="sr-only">Error: </span>{error}
+          <div
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+            className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm"
+            id="form-error"
+          >
+            <span className="sr-only">Error: </span>
+            {error}
           </div>
         )}
 
         {success && (
-          <div role="status" aria-live="polite" aria-atomic="true" className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
-            <span className="sr-only">Success: </span>{success}
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm"
+          >
+            <span className="sr-only">Success: </span>
+            {success}
           </div>
         )}
 
         {authMode === 'email' ? (
-          <form onSubmit={handleEmailSubmit} className="space-y-4" noValidate aria-describedby="form-description" aria-label={isSignUp ? 'Create account form' : 'Sign in form'}>
+          <form
+            onSubmit={handleEmailSubmit}
+            className="space-y-4"
+            noValidate
+            aria-describedby="form-description"
+            aria-label={isSignUp ? 'Create account form' : 'Sign in form'}
+          >
             {isSignUp && (
               <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                <input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Enter your full name" disabled={loading} autoComplete="name" />
+                <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name
+                </label>
+                <input
+                  id="fullName"
+                  type="text"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  className={inputClassName}
+                  placeholder="Enter your full name"
+                  disabled={loading}
+                  autoComplete="name"
+                />
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Enter your email" disabled={loading} autoComplete="email" />
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                className={inputClassName}
+                placeholder={isSignUp ? 'yourname@iitkgp.ac.in' : 'Enter your email'}
+                disabled={loading}
+                autoComplete="email"
+              />
+              {isSignUp && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Use your IIT Kharagpur email address for account verification.
+                </p>
+              )}
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Enter your password" disabled={loading} autoComplete={isSignUp ? 'new-password' : 'current-password'} minLength={6} />
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className={inputClassName}
+                placeholder={isSignUp ? 'Create a password' : 'Enter your password'}
+                disabled={loading}
+                autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                minLength={6}
+              />
             </div>
 
             {!isSignUp && (
@@ -222,8 +305,7 @@ export default function LoginPage() {
                 onClick={() => {
                   setShowForgotPassword(!showForgotPassword);
                   setForgotEmail(email);
-                  setError('');
-                  setSuccess('');
+                  resetMessages();
                 }}
                 className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
               >
@@ -233,33 +315,82 @@ export default function LoginPage() {
 
             {showForgotPassword && (
               <div className="rounded-lg border border-gray-200 p-3 space-y-2">
-                <label htmlFor="forgotEmail" className="block text-sm font-medium text-gray-700">Reset Email</label>
-                <input id="forgotEmail" type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter your account email" disabled={loading} />
-                <button type="button" onClick={handleForgotPassword} disabled={loading} className="w-full bg-gray-900 text-white rounded-lg px-4 py-2 text-sm hover:bg-black disabled:opacity-50">
+                <label htmlFor="forgotEmail" className="block text-sm font-medium text-gray-700">
+                  Reset Email
+                </label>
+                <input
+                  id="forgotEmail"
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(event) => setForgotEmail(event.target.value)}
+                  className={smallInputClassName}
+                  placeholder="Enter your account email"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                  className="w-full bg-gray-900 text-white rounded-lg px-4 py-2 text-sm hover:bg-black disabled:opacity-50"
+                >
                   Send Reset Link
                 </button>
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white rounded-lg px-6 py-3 font-medium hover:bg-indigo-700 disabled:opacity-50">
-              {loading ? (isSignUp ? 'Creating Account...' : 'Signing In...') : (isSignUp ? 'Sign Up' : 'Sign In')}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-indigo-600 text-white rounded-lg px-6 py-3 font-medium hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {loading ? (isSignUp ? 'Creating Account...' : 'Signing In...') : isSignUp ? 'Sign Up' : 'Sign In'}
             </button>
           </form>
         ) : (
-          <form onSubmit={handlePhoneOtpSubmit} className="space-y-4" noValidate aria-label="Phone OTP sign in form">
+          <form
+            onSubmit={handlePhoneOtpSubmit}
+            className="space-y-4"
+            noValidate
+            aria-label="Phone OTP sign in form"
+          >
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-              <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="e.g. +919876543210" disabled={loading || otpSent} autoComplete="tel" />
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                Phone Number
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                className={inputClassName}
+                placeholder="e.g. +919876543210"
+                disabled={loading || otpSent}
+                autoComplete="tel"
+              />
             </div>
 
             {otpSent && (
               <div>
-                <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-1">OTP</label>
-                <input id="otp" type="text" value={otp} onChange={(e) => setOtp(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Enter 6-digit OTP" disabled={loading} />
+                <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-1">
+                  OTP
+                </label>
+                <input
+                  id="otp"
+                  type="text"
+                  value={otp}
+                  onChange={(event) => setOtp(event.target.value)}
+                  className={inputClassName}
+                  placeholder="Enter 6-digit OTP"
+                  disabled={loading}
+                />
               </div>
             )}
 
-            <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white rounded-lg px-6 py-3 font-medium hover:bg-indigo-700 disabled:opacity-50">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-indigo-600 text-white rounded-lg px-6 py-3 font-medium hover:bg-indigo-700 disabled:opacity-50"
+            >
               {loading ? 'Please wait...' : otpSent ? 'Verify OTP & Sign In' : 'Send OTP'}
             </button>
 
@@ -269,8 +400,7 @@ export default function LoginPage() {
                 onClick={() => {
                   setOtpSent(false);
                   setOtp('');
-                  setError('');
-                  setSuccess('');
+                  resetMessages();
                 }}
                 className="w-full text-sm text-indigo-600 hover:text-indigo-700"
               >
@@ -286,8 +416,7 @@ export default function LoginPage() {
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setShowForgotPassword(false);
-                setError('');
-                setSuccess('');
+                resetMessages();
               }}
               className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
               disabled={loading}

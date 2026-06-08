@@ -55,8 +55,10 @@ interface Stat {
 const getGreetingState = () => {
   const now = new Date();
   const hours = now.getHours();
+
   return {
-    currentTime: hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening',
+    currentTime:
+      hours < 12 ? 'Good Morning' : hours < 17 ? 'Good Afternoon' : 'Good Evening',
     greeting: hours < 12 ? '🌅' : hours < 17 ? '☀️' : '🌙',
   };
 };
@@ -68,17 +70,37 @@ const StudentDashboardInteractive = () => {
   const [isOffline, setIsOffline] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [authBootTimeout, setAuthBootTimeout] = useState(false);
-  const { user, loading, signOut } = useAuth();
+
+  const {
+    user,
+    loading,
+    profileLoading,
+    isProfileComplete,
+    signOut,
+  } = useAuth();
+
   const router = useRouter();
   const toast = useToast();
 
-  // Connect Supabase real-time channels for order, delivery, and wallet updates
-  const { walletBalance: liveBalance, cashbackEarned: liveCashback, activeOrders: liveOrders, recentTransactions: liveTransactions, isLoading: isDataLoading } = useRealtimeChannels(user?.id);
+  const {
+    walletBalance: liveBalance,
+    cashbackEarned: liveCashback,
+    activeOrders: liveOrders,
+    recentTransactions: liveTransactions,
+    isLoading: isDataLoading,
+  } = useRealtimeChannels(user?.id);
 
-  // Connect Supabase real-time listener for AI usage (questions remaining, premium status)
   const { isLoading: isAILoading } = useAICompanionRealtime(user?.id, 0, false);
 
-  const { retry, manualRetry, reset, isRetrying, retryCount, nextRetryIn, maxRetriesReached } = useRetry({
+  const {
+    retry,
+    manualRetry,
+    reset,
+    isRetrying,
+    retryCount,
+    nextRetryIn,
+    maxRetriesReached,
+  } = useRetry({
     maxRetries: 3,
     baseDelay: 1000,
     onRetry: async () => {
@@ -87,12 +109,18 @@ const StudentDashboardInteractive = () => {
     },
   });
 
-
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading || profileLoading) return;
+
+    if (!user) {
       router.replace('/login');
+      return;
     }
-  }, [loading, user, router]);
+
+    if (!isProfileComplete) {
+      router.replace('/student-profile?complete=1');
+    }
+  }, [loading, profileLoading, user, isProfileComplete, router]);
 
   useEffect(() => {
     const timer = setTimeout(() => setAuthBootTimeout(true), 8000);
@@ -101,19 +129,26 @@ const StudentDashboardInteractive = () => {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
     const handleOnline = () => {
       setIsOffline(false);
       reset();
       setHasError(false);
     };
+
     const handleOffline = () => {
       setIsOffline(true);
       setHasError(true);
       retry();
     };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [retry, reset]);
 
   const handleLogout = async () => {
@@ -126,6 +161,7 @@ const StudentDashboardInteractive = () => {
         typeof error === 'object' && error !== null && 'message' in error
           ? error.message
           : undefined;
+
       console.error('Logout error:', errorMessage);
       toast.error('Logout failed', 'Please try again');
     }
@@ -136,9 +172,11 @@ const StudentDashboardInteractive = () => {
       const names = user.user_metadata.full_name.split(' ');
       return names.map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
     }
+
     if (user?.email) {
       return user.email.slice(0, 2).toUpperCase();
     }
+
     return 'SK';
   };
 
@@ -146,23 +184,55 @@ const StudentDashboardInteractive = () => {
     if (user?.user_metadata?.full_name) {
       return user.user_metadata.full_name.split(' ')[0];
     }
+
     return 'Scholar';
   };
 
-  const walletBalance = liveBalance ?? 1250.50;
+  const walletBalance = liveBalance ?? 1250.5;
   const cashbackEarned = liveCashback > 0 ? liveCashback : 62.75;
 
-  const recentTransactions = liveTransactions.length > 0 ? liveTransactions : [
-    { id: 'txn001', user_id: user?.id ?? 'local-user', type: 'credit' as const, amount: 25.00, description: 'Cashback from Food Order', created_at: '2026-02-23T00:00:00.000Z', date: '23/02/2026', status: 'completed' as const },
-    { id: 'txn002', user_id: user?.id ?? 'local-user', type: 'debit' as const, amount: 150.00, description: 'Dark Store Purchase', created_at: '2026-02-22T00:00:00.000Z', date: '22/02/2026', status: 'completed' as const },
-    { id: 'txn003', user_id: user?.id ?? 'local-user', type: 'credit' as const, amount: 500.00, description: 'Wallet Recharge', created_at: '2026-02-20T00:00:00.000Z', date: '20/02/2026', status: 'completed' as const },
-  ];
+  const recentTransactions =
+    liveTransactions.length > 0
+      ? liveTransactions
+      : [
+          {
+            id: 'txn001',
+            user_id: user?.id ?? 'local-user',
+            type: 'credit' as const,
+            amount: 25.0,
+            description: 'Cashback from Food Order',
+            created_at: '2026-02-23T00:00:00.000Z',
+            date: '23/02/2026',
+            status: 'completed' as const,
+          },
+          {
+            id: 'txn002',
+            user_id: user?.id ?? 'local-user',
+            type: 'debit' as const,
+            amount: 150.0,
+            description: 'Dark Store Purchase',
+            created_at: '2026-02-22T00:00:00.000Z',
+            date: '22/02/2026',
+            status: 'completed' as const,
+          },
+          {
+            id: 'txn003',
+            user_id: user?.id ?? 'local-user',
+            type: 'credit' as const,
+            amount: 500.0,
+            description: 'Wallet Recharge',
+            created_at: '2026-02-20T00:00:00.000Z',
+            date: '20/02/2026',
+            status: 'completed' as const,
+          },
+        ];
 
   const services: Service[] = [
     {
       id: 'food-delivery',
       title: 'Food Delivery',
-      description: 'Order from campus restaurants with free delivery above ₹399. Minimum order ₹149.',
+      description:
+        'Order from campus restaurants with free delivery above ₹399. Minimum order ₹149.',
       icon: 'ShoppingBagIcon',
       href: '/food-ordering-interface',
       badge: 'Free Delivery ₹399+',
@@ -181,9 +251,19 @@ const StudentDashboardInteractive = () => {
     },
   ];
 
-  const activeOrders = liveOrders.length > 0 ? liveOrders : [
-    { id: 'ord001', serviceName: 'Food Delivery', status: 'preparing' as const, estimatedTime: '25 mins', orderNumber: 'FD2402240001', icon: 'ShoppingBagIcon' as const },
-  ];
+  const activeOrders =
+    liveOrders.length > 0
+      ? liveOrders
+      : [
+          {
+            id: 'ord001',
+            serviceName: 'Food Delivery',
+            status: 'preparing' as const,
+            estimatedTime: '25 mins',
+            orderNumber: 'FD2402240001',
+            icon: 'ShoppingBagIcon' as const,
+          },
+        ];
 
   const offers: Offer[] = [
     {
@@ -193,7 +273,8 @@ const StudentDashboardInteractive = () => {
       code: 'EDCASH5',
       discount: '5% Cashback',
       validUntil: '24/04/2026',
-      image: 'https://img.rocket.new/generatedImages/rocket_gen_img_17cbf357e-1767195657585.png',
+      image:
+        'https://img.rocket.new/generatedImages/rocket_gen_img_17cbf357e-1767195657585.png',
       alt: 'Colorful cashback offer banner with percentage symbols and coins on gradient background',
       type: 'cashback',
       minOrder: 149,
@@ -213,20 +294,44 @@ const StudentDashboardInteractive = () => {
   ];
 
   const stats: Stat[] = [
-    { label: 'Total Orders', value: '47', icon: 'ShoppingBagIcon', color: 'primary' },
-    { label: 'Total Spent', value: '₹8,450', icon: 'CurrencyRupeeIcon', color: 'success' },
-    { label: 'Cashback Earned', value: `₹${cashbackEarned.toFixed(0)}`, icon: 'StarIcon', color: 'accent' },
-    { label: 'Active Orders', value: String(activeOrders.length), icon: 'TruckIcon', color: 'warning' },
+    {
+      label: 'Total Orders',
+      value: '47',
+      icon: 'ShoppingBagIcon',
+      color: 'primary',
+    },
+    {
+      label: 'Total Spent',
+      value: '₹8,450',
+      icon: 'CurrencyRupeeIcon',
+      color: 'success',
+    },
+    {
+      label: 'Cashback Earned',
+      value: `₹${cashbackEarned.toFixed(0)}`,
+      icon: 'StarIcon',
+      color: 'accent',
+    },
+    {
+      label: 'Active Orders',
+      value: String(activeOrders.length),
+      icon: 'TruckIcon',
+      color: 'warning',
+    },
   ];
 
-  if (loading || (!user && isHydrated)) {
+  if (loading || profileLoading || (!user && isHydrated)) {
     return (
       <div className="min-h-screen gradient-mesh">
         <div className="container mx-auto px-4 py-8">
           {authBootTimeout ? (
             <div className="max-w-lg rounded-2xl glass-card p-6 text-center">
-              <h2 className="text-lg font-semibold text-white">Still loading your dashboard…</h2>
-              <p className="mt-2 text-sm text-white/70">If this takes too long, go to login and try again.</p>
+              <h2 className="text-lg font-semibold text-white">
+                Still loading your dashboard…
+              </h2>
+              <p className="mt-2 text-sm text-white/70">
+                If this takes too long, go to login and try again.
+              </p>
               <button
                 onClick={() => router.replace('/login')}
                 className="mt-4 inline-flex items-center rounded-lg border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
@@ -262,46 +367,85 @@ const StudentDashboardInteractive = () => {
 
   return (
     <div className="min-h-screen gradient-mesh dot-pattern">
-      {/* Floating orbs background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-20 left-10 w-72 h-72 bg-purple-600/10 rounded-full blur-3xl animate-float-slow"></div>
-        <div className="absolute top-40 right-20 w-96 h-96 bg-pink-500/8 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute bottom-40 left-1/3 w-80 h-80 bg-indigo-600/8 rounded-full blur-3xl animate-float-slow" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute bottom-20 right-10 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '0.5s' }}></div>
+        <div
+          className="absolute top-40 right-20 w-96 h-96 bg-pink-500/8 rounded-full blur-3xl animate-float"
+          style={{ animationDelay: '1s' }}
+        ></div>
+        <div
+          className="absolute bottom-40 left-1/3 w-80 h-80 bg-indigo-600/8 rounded-full blur-3xl animate-float-slow"
+          style={{ animationDelay: '2s' }}
+        ></div>
+        <div
+          className="absolute bottom-20 right-10 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl animate-float"
+          style={{ animationDelay: '0.5s' }}
+        ></div>
       </div>
 
-      {/* Header */}
       <header className="sticky top-0 z-50 glass-strong border-b border-white/10">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            {/* Logo */}
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-10 h-10 gradient-primary rounded-xl flex items-center justify-center shadow-glow-purple animate-glow-pulse">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="text-white"
+                  >
+                    <path
+                      d="M12 2L2 7L12 12L22 7L12 2Z"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M2 17L12 22L22 17"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M2 12L12 17L22 12"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-background animate-ping-slow"></div>
               </div>
               <div>
-                <span className="font-bold text-xl text-white tracking-tight">Ed<span className="text-purple-400">Stop</span></span>
+                <span className="font-bold text-xl text-white tracking-tight">
+                  Ed<span className="text-purple-400">Stop</span>
+                </span>
                 <div className="flex items-center gap-1">
-                  <span className="text-xs text-purple-300/70 font-medium">IIT Kharagpur</span>
+                  <span className="text-xs text-purple-300/70 font-medium">
+                    IIT Kharagpur
+                  </span>
                   <span className="text-xs">🎓</span>
                 </div>
               </div>
             </div>
 
-            {/* Right actions */}
             <div className="flex items-center gap-2 relative">
               <button
                 onClick={() => alert('Notifications coming soon!')}
                 className="relative flex items-center justify-center w-10 h-10 rounded-xl glass hover:bg-white/10 transition-smooth press-scale focus-ring"
               >
-                <Icon name="BellIcon" size={20} variant="outline" className="text-white/80" />
+                <Icon
+                  name="BellIcon"
+                  size={20}
+                  variant="outline"
+                  className="text-white/80"
+                />
                 <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-pink-500 rounded-full border-2 border-background animate-pulse"></span>
               </button>
 
@@ -310,7 +454,9 @@ const StudentDashboardInteractive = () => {
                 className="flex items-center gap-2 px-3 py-2 rounded-xl glass hover:bg-white/10 transition-smooth press-scale cursor-pointer"
               >
                 <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center shadow-glow-purple">
-                  <span className="font-bold text-xs text-white">{getUserInitials()}</span>
+                  <span className="font-bold text-xs text-white">
+                    {getUserInitials()}
+                  </span>
                 </div>
                 <Icon name="ChevronDownIcon" size={14} className="text-white/60" />
               </div>
@@ -318,37 +464,80 @@ const StudentDashboardInteractive = () => {
               {showProfileMenu && (
                 <div className="absolute top-full right-0 mt-2 w-56 glass-strong rounded-2xl border border-white/10 py-2 z-50 animate-slide-up shadow-soft-xl">
                   <div className="px-4 py-3 border-b border-white/10">
-                    <p className="text-sm font-semibold text-white">{user?.user_metadata?.full_name || 'Student'}</p>
+                    <p className="text-sm font-semibold text-white">
+                      {user?.user_metadata?.full_name || 'Student'}
+                    </p>
                     <p className="text-xs text-white/50 truncate">{user?.email}</p>
                   </div>
-                  <Link href="/wallet" className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2">
+
+                  <Link
+                    href="/wallet"
+                    className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2"
+                  >
                     <Icon name="WalletIcon" size={16} className="text-purple-400" />
                     <span>My Wallet</span>
                   </Link>
-                  <Link href="/order-history" className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2">
-                    <Icon name="ClipboardDocumentListIcon" size={16} className="text-indigo-400" />
+
+                  <Link
+                    href="/order-history"
+                    className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2"
+                  >
+                    <Icon
+                      name="ClipboardDocumentListIcon"
+                      size={16}
+                      className="text-indigo-400"
+                    />
                     <span>Order History</span>
                   </Link>
-                  <Link href="/student-profile" className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2">
-                    <Icon name="UserCircleIcon" size={16} className="text-purple-400" />
+
+                  <Link
+                    href="/student-profile"
+                    className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2"
+                  >
+                    <Icon
+                      name="UserCircleIcon"
+                      size={16}
+                      className="text-purple-400"
+                    />
                     <span>My Profile</span>
                   </Link>
-                  <Link href="/promotions" className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2">
+
+                  <Link
+                    href="/promotions"
+                    className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2"
+                  >
                     <Icon name="TagIcon" size={16} className="text-pink-400" />
                     <span>Promotions</span>
                   </Link>
-                  <Link href="/promotions-analytics-dashboard" className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2">
+
+                  <Link
+                    href="/promotions-analytics-dashboard"
+                    className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2"
+                  >
                     <Icon name="ChartBarIcon" size={16} className="text-cyan-400" />
                     <span>Promo Analytics</span>
                   </Link>
-                  <Link href="/admin-promo-code-management" className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2">
-                    <Icon name="ShieldCheckIcon" size={16} className="text-indigo-400" />
+
+                  <Link
+                    href="/admin-promo-code-management"
+                    className="w-full text-left px-4 py-2.5 text-sm text-white/80 hover:bg-white/10 transition-colors flex items-center gap-2"
+                  >
+                    <Icon
+                      name="ShieldCheckIcon"
+                      size={16}
+                      className="text-indigo-400"
+                    />
                     <span>Admin: Promo Codes</span>
                   </Link>
-                  <Link href="/account-deletion" className="w-full text-left px-4 py-2.5 text-sm text-red-400/80 hover:bg-red-500/10 transition-colors flex items-center gap-2">
+
+                  <Link
+                    href="/account-deletion"
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-400/80 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+                  >
                     <Icon name="TrashIcon" size={16} className="text-red-400" />
                     <span>Delete Account</span>
                   </Link>
+
                   <button
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
@@ -364,12 +553,13 @@ const StudentDashboardInteractive = () => {
       </header>
 
       <main className="relative z-10 container mx-auto px-4 py-6">
-        {/* Network Error Banner */}
         {isOffline && (
           <div className="mb-6 animate-slide-up">
             <ErrorFallback
               type="network"
-              onRetry={() => { manualRetry(true); }}
+              onRetry={() => {
+                manualRetry(true);
+              }}
               variant="minimal"
               isRetrying={isRetrying}
               retryCount={retryCount}
@@ -380,11 +570,16 @@ const StudentDashboardInteractive = () => {
           </div>
         )}
 
-        {/* Hero Section */}
         <div className="relative mb-8 p-8 rounded-3xl overflow-hidden animate-slide-up">
           <div className="absolute inset-0 gradient-hero opacity-90"></div>
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.9) 0%, rgba(79,70,229,0.85) 40%, rgba(236,72,153,0.8) 100%)' }}></div>
-          {/* Animated shapes */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(124,58,237,0.9) 0%, rgba(79,70,229,0.85) 40%, rgba(236,72,153,0.8) 100%)',
+            }}
+          ></div>
+
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 animate-spin-slow"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full -ml-24 -mb-24 animate-float"></div>
           <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-pink-400/10 rounded-full blur-xl animate-float-slow"></div>
@@ -398,47 +593,57 @@ const StudentDashboardInteractive = () => {
                     🏛️ IIT KGP Campus
                   </span>
                 </div>
+
                 <h1 className="font-bold text-4xl md:text-5xl text-white mb-2 leading-tight">
                   {currentTime},<br />
                   <span className="text-yellow-300">{getUserName()}!</span>
                 </h1>
+
                 <p className="text-white/80 text-lg font-medium">
                   Your campus commerce hub is ready 🚀
                 </p>
+
                 <div className="flex items-center gap-3 mt-4">
                   <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 backdrop-blur-sm rounded-full border border-white/20">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-white font-medium">All services live</span>
+                    <span className="text-xs text-white font-medium">
+                      All services live
+                    </span>
                   </div>
+
                   <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 backdrop-blur-sm rounded-full border border-white/20">
-                    <span className="text-xs text-white font-medium">⚡ Fast delivery</span>
+                    <span className="text-xs text-white font-medium">
+                      ⚡ Fast delivery
+                    </span>
                   </div>
                 </div>
               </div>
+
               <div className="hidden md:flex flex-col items-end gap-2">
                 <div className="glass rounded-2xl p-4 border border-white/20 animate-bounce-in">
                   <p className="text-xs text-white/70 mb-1">Wallet Balance</p>
                   {isDataLoading && liveBalance === null ? (
                     <div className="h-8 w-24 bg-white/20 rounded animate-pulse"></div>
                   ) : (
-                    <p className="text-2xl font-bold text-white">₹{walletBalance.toFixed(0)}</p>
+                    <p className="text-2xl font-bold text-white">
+                      ₹{walletBalance.toFixed(0)}
+                    </p>
                   )}
-                  <p className="text-xs text-green-300">+₹{cashbackEarned.toFixed(2)} cashback</p>
+                  <p className="text-xs text-green-300">
+                    +₹{cashbackEarned.toFixed(2)} cashback
+                  </p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Quick Stats */}
         <div className="mb-6 animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <QuickStatsCard stats={stats} />
         </div>
 
-        {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2 space-y-6">
-            {/* Services */}
             <div className="animate-slide-up" style={{ animationDelay: '0.15s' }}>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -449,6 +654,7 @@ const StudentDashboardInteractive = () => {
                   {services.filter(s => s.isActive).length} active
                 </span>
               </div>
+
               {services.length === 0 && !isDataLoading ? (
                 <EmptyState
                   icon="🏪"
@@ -466,7 +672,6 @@ const StudentDashboardInteractive = () => {
               )}
             </div>
 
-            {/* Active Orders */}
             <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
               <ActiveOrdersSection
                 orders={activeOrders}
@@ -476,11 +681,18 @@ const StudentDashboardInteractive = () => {
               />
             </div>
 
-            {/* Info Card */}
-            <div className="glass-card rounded-2xl p-6 border border-purple-500/20 animate-slide-up" style={{ animationDelay: '0.25s' }}>
+            <div
+              className="glass-card rounded-2xl p-6 border border-purple-500/20 animate-slide-up"
+              style={{ animationDelay: '0.25s' }}
+            >
               <div className="flex items-start gap-4">
                 <div className="flex items-center justify-center w-12 h-12 gradient-primary rounded-xl shadow-glow-purple flex-shrink-0">
-                  <Icon name="InformationCircleIcon" size={24} variant="solid" className="text-white" />
+                  <Icon
+                    name="InformationCircleIcon"
+                    size={24}
+                    variant="solid"
+                    className="text-white"
+                  />
                 </div>
                 <div>
                   <h3 className="font-bold text-lg text-white mb-3">📋 Campus Policy</h3>
@@ -492,7 +704,11 @@ const StudentDashboardInteractive = () => {
                       'Single restaurant per food order policy applies',
                     ].map((item, i) => (
                       <li key={i} className="flex items-start gap-2">
-                        <Icon name="CheckCircleIcon" size={16} className="text-emerald-400 mt-0.5 flex-shrink-0" />
+                        <Icon
+                          name="CheckCircleIcon"
+                          size={16}
+                          className="text-emerald-400 mt-0.5 flex-shrink-0"
+                        />
                         <span className="text-white/70">{item}</span>
                       </li>
                     ))}
@@ -502,9 +718,11 @@ const StudentDashboardInteractive = () => {
             </div>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
-            <div className="animate-slide-in-right" style={{ animationDelay: '0.1s' }}>
+            <div
+              className="animate-slide-in-right"
+              style={{ animationDelay: '0.1s' }}
+            >
               <WalletSection
                 balance={walletBalance}
                 cashbackEarned={cashbackEarned}
@@ -512,7 +730,11 @@ const StudentDashboardInteractive = () => {
                 isLoading={isDataLoading && liveBalance === null}
               />
             </div>
-            <div className="animate-slide-in-right" style={{ animationDelay: '0.15s' }}>
+
+            <div
+              className="animate-slide-in-right"
+              style={{ animationDelay: '0.15s' }}
+            >
               <AICompanionCard
                 freeQuestionsRemaining={3}
                 totalFreeQuestions={5}
@@ -520,32 +742,68 @@ const StudentDashboardInteractive = () => {
                 isLoading={isAILoading}
               />
             </div>
-            <div className="animate-slide-in-right" style={{ animationDelay: '0.2s' }}>
+
+            <div
+              className="animate-slide-in-right"
+              style={{ animationDelay: '0.2s' }}
+            >
               <OffersSection offers={offers} />
             </div>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="relative z-10 glass-strong border-t border-white/10 mt-8">
         <div className="container mx-auto px-4 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center shadow-glow-purple">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-white">
-                  <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="text-white"
+                >
+                  <path
+                    d="M12 2L2 7L12 12L22 7L12 2Z"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M2 17L12 22L22 17"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M2 12L12 17L22 12"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </div>
+
               <div>
-                <p className="font-bold text-sm text-white">Ed<span className="text-purple-400">Stop</span></p>
-                <p className="text-xs text-white/40">IIT Kharagpur Campus Commerce</p>
+                <p className="font-bold text-sm text-white">
+                  Ed<span className="text-purple-400">Stop</span>
+                </p>
+                <p className="text-xs text-white/40">
+                  IIT Kharagpur Campus Commerce
+                </p>
               </div>
             </div>
+
             <div className="flex items-center gap-4">
-              <span className="text-xs text-white/30">© {new Date().getFullYear()} EdStop. Built with ❤️ for KGPians</span>
+              <span className="text-xs text-white/30">
+                © {new Date().getFullYear()} EdStop. Built with ❤️ for KGPians
+              </span>
             </div>
           </div>
         </div>
