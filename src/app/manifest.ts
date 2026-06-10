@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'EdStop',
     short_name: 'EdStop',
     description: 'IIT Kharagpur campus commerce and student services app.',
-    start_url: '/student-dashboard',
+    start_url: '/',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
