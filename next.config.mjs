@@ -6,8 +6,8 @@ const nextConfig = {
   distDir: process.env.DIST_DIR || '.next',
 
   typescript: {
-      ignoreBuildErrors: true,
-    },
+    ignoreBuildErrors: true,
+  },
 
   eslint: {
     ignoreDuringBuilds: true,
@@ -16,16 +16,6 @@ const nextConfig = {
   images: {
     remotePatterns: imageHosts,
   },
-
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/student-dashboard',
-        permanent: false,
-      },
-    ];
-  }
 };
 
 export default nextConfig;
