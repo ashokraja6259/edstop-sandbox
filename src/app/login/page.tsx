@@ -1,3 +1,5 @@
+// FILE: src/app/login/page.tsx
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -47,6 +49,7 @@ export default function LoginPage() {
     user,
     loading: authLoading,
     resetPassword,
+    resendVerificationEmail,
     signInWithPhoneOtp,
     verifyPhoneOtp,
   } = useAuth();
@@ -60,6 +63,16 @@ export default function LoginPage() {
   const resetMessages = () => {
     setError('');
     setSuccess('');
+  };
+
+  const isAllowedLaunchEmail = (value: string) => {
+    const normalized = value.trim().toLowerCase();
+
+    return (
+      normalized.endsWith('@kgpian.iitkgp.ac.in') ||
+      normalized.endsWith('@iitkgp.ac.in') ||
+      normalized.endsWith('@gmail.com')
+    );
   };
 
   const handleEmailSubmit = async (event: React.FormEvent) => {
@@ -79,6 +92,13 @@ export default function LoginPage() {
       return;
     }
 
+    if (isSignUp && !isAllowedLaunchEmail(normalizedEmail)) {
+      setError(
+        'Please use your IIT KGP email. For launch testing, Gmail is also allowed.'
+      );
+      return;
+    }
+
     if (isSignUp && !acceptedTerms) {
       setError('Please accept EdStop Terms and Privacy Policy to continue.');
       return;
@@ -93,9 +113,10 @@ export default function LoginPage() {
       setLoading(true);
 
       if (isSignUp) {
-        await signUp(normalizedEmail, password);
-        setSuccess('Account created. Please check your email to verify your account.');
-        setEmail('');
+        await signUp(normalizedEmail, password, fullName);
+        setSuccess(
+          `Verification email sent to ${normalizedEmail}. Please open the email and confirm your account before signing in.`
+        );
         setPassword('');
         setFullName('');
         setAcceptedTerms(false);
@@ -133,6 +154,39 @@ export default function LoginPage() {
       setForgotEmail('');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to send reset link.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setError('');
+    setSuccess('');
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setError('Enter your email address first.');
+      return;
+    }
+
+    if (!isAllowedLaunchEmail(normalizedEmail)) {
+      setError(
+        'Please use your IIT KGP email. For launch testing, Gmail is also allowed.'
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await resendVerificationEmail(normalizedEmail);
+      setSuccess(`Verification email resent to ${normalizedEmail}.`);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to resend verification email.'
+      );
     } finally {
       setLoading(false);
     }
@@ -254,7 +308,7 @@ export default function LoginPage() {
                 {authMode === 'phone'
                   ? 'Use your mobile number to continue.'
                   : isSignUp
-                    ? 'Join EdStop and complete your campus profile after signup.'
+                    ? 'Verify your email first, then complete your campus profile.'
                     : 'Sign in to access your dashboard.'}
               </p>
             </div>
@@ -326,7 +380,10 @@ export default function LoginPage() {
               >
                 {isSignUp && (
                   <div>
-                    <label htmlFor="fullName" className="mb-1.5 block text-xs font-semibold text-white/60">
+                    <label
+                      htmlFor="fullName"
+                      className="mb-1.5 block text-xs font-semibold text-white/60"
+                    >
                       Full Name
                     </label>
                     <input
@@ -343,7 +400,10 @@ export default function LoginPage() {
                 )}
 
                 <div>
-                  <label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-white/60">
+                  <label
+                    htmlFor="email"
+                    className="mb-1.5 block text-xs font-semibold text-white/60"
+                  >
                     Email Address
                   </label>
                   <input
@@ -358,13 +418,16 @@ export default function LoginPage() {
                   />
                   {isSignUp && (
                     <p className="mt-1.5 text-xs text-white/40">
-                      Any email is allowed for launch. Campus verification can be completed later.
+                      Use your IIT KGP email. Gmail is temporarily allowed for launch testing.
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="password" className="mb-1.5 block text-xs font-semibold text-white/60">
+                  <label
+                    htmlFor="password"
+                    className="mb-1.5 block text-xs font-semibold text-white/60"
+                  >
                     Password
                   </label>
                   <input
@@ -418,8 +481,11 @@ export default function LoginPage() {
                 )}
 
                 {showForgotPassword && (
-                  <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-3 space-y-2">
-                    <label htmlFor="forgotEmail" className="block text-xs font-semibold text-white/60">
+                  <div className="space-y-2 rounded-2xl border border-white/10 bg-slate-950/40 p-3">
+                    <label
+                      htmlFor="forgotEmail"
+                      className="block text-xs font-semibold text-white/60"
+                    >
                       Reset Email
                     </label>
                     <input
@@ -455,6 +521,17 @@ export default function LoginPage() {
                       ? 'Create Account'
                       : 'Sign In'}
                 </button>
+
+                {isSignUp && (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={loading || !email.trim()}
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.06] px-6 py-3 text-sm font-bold text-white/80 transition hover:bg-white/[0.1] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Resend Verification Email
+                  </button>
+                )}
               </form>
             ) : (
               <form
@@ -464,7 +541,10 @@ export default function LoginPage() {
                 aria-label="Phone OTP sign in form"
               >
                 <div>
-                  <label htmlFor="phone" className="mb-1.5 block text-xs font-semibold text-white/60">
+                  <label
+                    htmlFor="phone"
+                    className="mb-1.5 block text-xs font-semibold text-white/60"
+                  >
                     Phone Number
                   </label>
                   <input
@@ -484,7 +564,10 @@ export default function LoginPage() {
 
                 {otpSent && (
                   <div>
-                    <label htmlFor="otp" className="mb-1.5 block text-xs font-semibold text-white/60">
+                    <label
+                      htmlFor="otp"
+                      className="mb-1.5 block text-xs font-semibold text-white/60"
+                    >
                       OTP
                     </label>
                     <input

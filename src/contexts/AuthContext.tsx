@@ -46,11 +46,16 @@ interface AuthContextType {
   profileLoading: boolean;
   isProfileComplete: boolean;
   refreshProfile: () => Promise<void>;
-  signUp: (email: string, password: string) => Promise<AuthResponse>;
+  signUp: (
+    email: string,
+    password: string,
+    fullName?: string
+  ) => Promise<AuthResponse>;
   signIn: (email: string, password: string) => Promise<AuthTokenResponsePassword>;
   signOut: () => Promise<void>;
   signInWithGoogle: () => Promise<OAuthResponse>;
   resetPassword: (email: string) => Promise<void>;
+  resendVerificationEmail: (email: string) => Promise<void>;
   signInWithPhoneOtp: (phone: string) => Promise<void>;
   verifyPhoneOtp: (phone: string, token: string) => Promise<void>;
 }
@@ -207,8 +212,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [loadProfile, supabase.auth]);
 
   const signUp = useCallback(
-    async (email: string, password: string) => {
-      const response = await supabase.auth.signUp({ email, password });
+    async (email: string, password: string, fullName?: string) => {
+      const response = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/student-dashboard`,
+          data: {
+            full_name: fullName?.trim() ?? '',
+          },
+        },
+      });
 
       if (response.error) {
         throw response.error;
@@ -248,7 +262,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/student-dashboard`,
       },
     });
   }, [supabase]);
@@ -257,6 +271,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     async (email: string) => {
       const response = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (response.error) {
+        throw response.error;
+      }
+    },
+    [supabase]
+  );
+
+  const resendVerificationEmail = useCallback(
+    async (email: string) => {
+      const response = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/student-dashboard`,
+        },
       });
 
       if (response.error) {
@@ -312,6 +343,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       signOut,
       signInWithGoogle,
       resetPassword,
+      resendVerificationEmail,
       signInWithPhoneOtp,
       verifyPhoneOtp,
     }),
@@ -329,6 +361,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       signOut,
       signInWithGoogle,
       resetPassword,
+      resendVerificationEmail,
       signInWithPhoneOtp,
       verifyPhoneOtp,
     ]
