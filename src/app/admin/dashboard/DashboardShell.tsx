@@ -3,13 +3,42 @@
 import { createClient } from '@/lib/supabase/server';
 import DashboardUI from './DashboardUI';
 
-type RevenueBreakdown = {
-  gross_revenue: number | null;
-  platform_commission: number | null;
-  rider_cost: number | null;
-  restaurant_payout: number | null;
-  net_platform_profit: number | null;
-  created_at: string;
+type OrderRow = {
+  id: string;
+  order_number: string;
+  order_type: string;
+  status: string;
+  final_amount: number | null;
+  total_amount: number | null;
+  payment_method: string | null;
+  restaurant_name: string | null;
+  created_at: string | null;
+};
+
+type RestaurantRow = {
+  id: string;
+  name: string;
+  is_open: boolean | null;
+  is_active: boolean | null;
+  is_available: boolean | null;
+};
+
+type SupportTicketRow = {
+  id: string;
+  status: string;
+  category: string;
+  created_at: string | null;
+};
+
+type MarketplaceRow = {
+  id: string;
+  status: string;
+};
+
+type LostFoundRow = {
+  id: string;
+  status: string;
+  item_type: string;
 };
 
 export default async function DashboardShell({
@@ -19,121 +48,165 @@ export default async function DashboardShell({
 }) {
   const supabase = await createClient();
 
-  /* ================= DATE RANGE ================= */
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
 
-  const dateLimit = new Date();
-  dateLimit.setDate(dateLimit.getDate() - Number(range || 0));
+  const rangeStart = new Date();
+  rangeStart.setDate(rangeStart.getDate() - Number(range || 30));
+  rangeStart.setHours(0, 0, 0, 0);
 
-  /* ================= FETCH DATA ================= */
+  const [
+    { data: orders, error: ordersError },
+    { data: restaurants, error: restaurantsError },
+    { data: supportTickets, error: supportError },
+    { data: marketplaceItems, error: marketplaceError },
+    { data: lostFoundItems, error: lostFoundError },
+  ] = await Promise.all([
+    supabase
+      .from('orders')
+      .select(
+        'id, order_number, order_type, status, final_amount, total_amount, payment_method, restaurant_name, created_at'
+      )
+      .gte('created_at', rangeStart.toISOString())
+      .order('created_at', { ascending: false })
+      .returns<OrderRow[]>(),
 
-  const { data, error } = await supabase
-    .from('admin_financial_breakdown')
-    .select('*')
-    .gte('created_at', dateLimit.toISOString())
-    .returns<RevenueBreakdown[]>();
+    supabase
+      .from('restaurants')
+      .select('id, name, is_open, is_active, is_available')
+      .returns<RestaurantRow[]>(),
 
-  if (error) {
-    console.error('Dashboard breakdown fetch error:', error.message);
-  }
+    supabase
+      .from('support_tickets')
+      .select('id, status, category, created_at')
+      .returns<SupportTicketRow[]>(),
 
-  const breakdown: RevenueBreakdown[] = data ?? [];
+    supabase
+      .from('marketplace_items')
+      .select('id, status')
+      .returns<MarketplaceRow[]>(),
 
-  /* ================= TOTALS ================= */
+    supabase
+      .from('lost_found_items')
+      .select('id, status, item_type')
+      .returns<LostFoundRow[]>(),
+  ]);
 
-  const totalGross = breakdown.reduce(
-    (sum, o) => sum + (o.gross_revenue ?? 0),
-    0
-  );
+  if (ordersError) console.error('Admin dashboard orders fetch failed:', ordersError);
+  if (restaurantsError) console.error('Admin dashboard restaurants fetch failed:', restaurantsError);
+  if (supportError) console.error('Admin dashboard support fetch failed:', supportError);
+  if (marketplaceError) console.error('Admin dashboard marketplace fetch failed:', marketplaceError);
+  if (lostFoundError) console.error('Admin dashboard lost/found fetch failed:', lostFoundError);
 
-  const totalCommission = breakdown.reduce(
-    (sum, o) => sum + (o.platform_commission ?? 0),
-    0
-  );
+  const orderRows = orders ?? [];
+  const restaurantRows = restaurants ?? [];
+  const supportRows = supportTickets ?? [];
+  const marketplaceRows = marketplaceItems ?? [];
+  const lostFoundRows = lostFoundItems ?? [];
 
-  const totalRider = breakdown.reduce(
-    (sum, o) => sum + (o.rider_cost ?? 0),
-    0
-  );
-
-  const totalRestaurant = breakdown.reduce(
-    (sum, o) => sum + (o.restaurant_payout ?? 0),
-    0
-  );
-
-  const netProfit = breakdown.reduce(
-    (sum, o) => sum + (o.net_platform_profit ?? 0),
-    0
-  );
-
-  const avgOrderValue =
-    breakdown.length > 0 ? totalGross / breakdown.length : 0;
-
-  const contributionMargin =
-    totalGross > 0
-      ? Number(((netProfit / totalGross) * 100).toFixed(2))
-      : 0;
-
-  /* ================= DAILY MAP ================= */
-
-  const dailyMap: Record<string, number> = {};
-
-  breakdown.forEach((o) => {
-    if (!o.created_at) return;
-
-    const day = o.created_at.split('T')[0];
-
-    if (!dailyMap[day]) dailyMap[day] = 0;
-    dailyMap[day] += o.gross_revenue ?? 0;
+  const todayOrders = orderRows.filter((order) => {
+    if (!order.created_at) return false;
+    return new Date(order.created_at) >= todayStart;
   });
 
-  const dailyValues = Object.values(dailyMap);
+  const revenue = orderRows.reduce(
+    (sum, order) => sum + Number(order.final_amount || order.total_amount || 0),
+    0
+  );
 
-  const avgDaily =
-    dailyValues.length > 0
-      ? dailyValues.reduce((a, b) => a + b, 0) / dailyValues.length
-      : 0;
+  const todayRevenue = todayOrders.reduce(
+    (sum, order) => sum + Number(order.final_amount || order.total_amount || 0),
+    0
+  );
 
-  /* ================= ANOMALY DETECTION ================= */
+  const deliveredOrders = orderRows.filter((order) => order.status === 'delivered');
+  const readyOrders = orderRows.filter((order) => order.status === 'ready');
+  const outForDeliveryOrders = orderRows.filter(
+    (order) => order.status === 'out_for_delivery'
+  );
+  const cancelledOrders = orderRows.filter((order) => order.status === 'cancelled');
 
-  const anomalies = Object.entries(dailyMap)
-    .filter(([, value]) =>
-      avgDaily > 0 &&
-      (value > avgDaily * 1.8 || value < avgDaily * 0.4)
-    )
-    .map(([day, value]) => ({
-      day,
-      value,
-    }));
+  const averageOrderValue =
+    orderRows.length > 0 ? revenue / orderRows.length : 0;
 
-  /* ================= FORECAST ================= */
+  const openTickets = supportRows.filter((ticket) =>
+    ['open', 'in_progress'].includes(ticket.status)
+  );
 
-  const forecast: { day: string; total_revenue: number }[] = [];
+  const activeMarketplace = marketplaceRows.filter(
+    (item) => item.status === 'active'
+  );
 
-  const projectedDaily = avgDaily;
+  const activeLostFound = lostFoundRows.filter(
+    (item) => item.status === 'active'
+  );
 
-  for (let i = 1; i <= 30; i++) {
-    forecast.push({
-      day: `+${i}`,
-      total_revenue: Math.round(projectedDaily),
-    });
-  }
+  const openRestaurants = restaurantRows.filter(
+    (restaurant) => restaurant.is_open
+  );
 
-  /* ================= RETURN ================= */
+  const activeRestaurants = restaurantRows.filter(
+    (restaurant) => restaurant.is_active !== false && restaurant.is_available !== false
+  );
+
+  const orderStatusCounts = [
+    'pending',
+    'confirmed',
+    'preparing',
+    'ready',
+    'out_for_delivery',
+    'delivered',
+    'cancelled',
+  ].map((status) => ({
+    status,
+    count: orderRows.filter((order) => order.status === status).length,
+  }));
+
+  const restaurantOrderMap = new Map<string, { name: string; orders: number; revenue: number }>();
+
+  orderRows.forEach((order) => {
+    const name = order.restaurant_name || 'Unknown Restaurant';
+    const current = restaurantOrderMap.get(name) || {
+      name,
+      orders: 0,
+      revenue: 0,
+    };
+
+    current.orders += 1;
+    current.revenue += Number(order.final_amount || order.total_amount || 0);
+
+    restaurantOrderMap.set(name, current);
+  });
+
+  const topRestaurants = Array.from(restaurantOrderMap.values())
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 8);
+
+  const recentOrders = orderRows.slice(0, 10);
 
   return (
     <DashboardUI
-      totals={{
-        totalGross,
-        totalCommission,
-        totalRider,
-        totalRestaurant,
-        netProfit,
-        avgOrderValue,
-        contributionMargin,
+      range={range}
+      metrics={{
+        totalOrders: orderRows.length,
+        todayOrders: todayOrders.length,
+        revenue,
+        todayRevenue,
+        averageOrderValue,
+        deliveredOrders: deliveredOrders.length,
+        readyOrders: readyOrders.length,
+        outForDeliveryOrders: outForDeliveryOrders.length,
+        cancelledOrders: cancelledOrders.length,
+        restaurants: restaurantRows.length,
+        openRestaurants: openRestaurants.length,
+        activeRestaurants: activeRestaurants.length,
+        openTickets: openTickets.length,
+        activeMarketplace: activeMarketplace.length,
+        activeLostFound: activeLostFound.length,
       }}
-      forecast={forecast}
-      anomalies={anomalies}
-      orderCount={breakdown.length}
+      orderStatusCounts={orderStatusCounts}
+      topRestaurants={topRestaurants}
+      recentOrders={recentOrders}
     />
   );
 }

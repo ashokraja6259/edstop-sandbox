@@ -2,366 +2,332 @@
 
 'use client';
 
-import {
-  AreaChart,
-  Area,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from 'recharts';
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
-interface DashboardTotals {
-  totalGross?: number;
-  totalCommission?: number;
-  totalRider?: number;
-  totalRestaurant?: number;
-  netProfit?: number;
-  avgOrderValue?: number;
-  contributionMargin?: number;
-}
+type Metrics = {
+  totalOrders: number;
+  todayOrders: number;
+  revenue: number;
+  todayRevenue: number;
+  averageOrderValue: number;
+  deliveredOrders: number;
+  readyOrders: number;
+  outForDeliveryOrders: number;
+  cancelledOrders: number;
+  restaurants: number;
+  openRestaurants: number;
+  activeRestaurants: number;
+  openTickets: number;
+  activeMarketplace: number;
+  activeLostFound: number;
+};
 
-interface ForecastPoint {
-  day: string;
-  total_revenue: number;
-}
+type OrderStatusCount = {
+  status: string;
+  count: number;
+};
 
-interface WeeklySettlement {
-  week: string;
-  restaurant_payout: number;
-  rider_cost: number;
-  net_profit: number;
-}
-
-interface RestaurantProfitability {
-  restaurant: string;
+type TopRestaurant = {
+  name: string;
   orders: number;
-  net_profit: number;
-}
+  revenue: number;
+};
 
-interface RiderPerformance {
-  rider: string;
-  deliveries: number;
-  total_earned: number;
-}
+type RecentOrder = {
+  id: string;
+  order_number: string;
+  order_type: string;
+  status: string;
+  final_amount: number | null;
+  total_amount: number | null;
+  payment_method: string | null;
+  restaurant_name: string | null;
+  created_at: string | null;
+};
 
-interface RevenueAnomaly {
-  day: string;
-  value: number;
-}
+type DashboardUIProps = {
+  range: number;
+  metrics: Metrics;
+  orderStatusCounts: OrderStatusCount[];
+  topRestaurants: TopRestaurant[];
+  recentOrders: RecentOrder[];
+};
 
-interface DashboardUIProps {
-  totals: DashboardTotals;
-  forecast: ForecastPoint[];
-  anomalies: RevenueAnomaly[];
-  orderCount: number;
-  weeklyData?: WeeklySettlement[];
-  restaurantData?: RestaurantProfitability[];
-  riderData?: RiderPerformance[];
-}
-
-interface CardProps {
-  title: string;
-  value?: number;
-  card: string;
-  text: string;
-  muted: string;
-}
-
-interface SectionProps {
-  title: string;
-  children: ReactNode;
-  card: string;
-  text: string;
-}
-
-interface ChartProps {
-  data: ForecastPoint[];
-  darkMode: boolean;
-}
-
-interface TableProps {
-  headers: string[];
-  rows: ReactNode[][];
-}
-
-/* ================= MAIN COMPONENT ================= */
+const money = (value: number) => `₹${Number(value || 0).toFixed(2)}`;
 
 export default function DashboardUI({
-  totals,
-  forecast,
-  anomalies,
-  orderCount,
-  weeklyData = [],
-  restaurantData = [],
-  riderData = [],
+  range,
+  metrics,
+  orderStatusCounts,
+  topRestaurants,
+  recentOrders,
 }: DashboardUIProps) {
-
-  const [darkMode, setDarkMode] = useState(true);
-  const [commissionRate, setCommissionRate] = useState(0);
-  const [riderBonus, setRiderBonus] = useState(0);
   const [autoRefresh, setAutoRefresh] = useState(false);
-
-  /* ================= AUTO REFRESH ================= */
 
   useEffect(() => {
     if (!autoRefresh) return;
+
     const interval = setInterval(() => {
       window.location.reload();
     }, 20000);
+
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
-  /* ================= SIMULATOR ================= */
-
-  const simulatedProfit = useMemo(() => {
-    const gross = totals?.totalGross || 0;
-    const baseProfit = totals?.netProfit || 0;
-    const commissionImpact = (gross * commissionRate) / 100;
-    return baseProfit + commissionImpact - riderBonus;
-  }, [commissionRate, riderBonus, totals]);
-
-  /* ================= THEME ================= */
-
-  const bg = darkMode ? "bg-[#0f172a]" : "bg-gray-100";
-  const card = darkMode ? "bg-[#1e293b] border-gray-700" : "bg-white border-gray-200";
-  const textPrimary = darkMode ? "text-white" : "text-gray-900";
-  const textMuted = darkMode ? "text-gray-400" : "text-gray-600";
-
-  /* ================= CSV EXPORT ================= */
-
-  const downloadCSV = () => {
-    if (!weeklyData.length) return;
-
-    const headers = ['Week','Restaurant Payout','Rider Cost','Net Profit'];
-    const rows = weeklyData.map((w) => [
-      w.week,
-      w.restaurant_payout,
-      w.rider_cost,
-      w.net_profit,
-    ]);
-
-    const csvContent =
-      [headers, ...rows].map(e => e.join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `weekly_settlement.csv`;
-    link.click();
-  };
-
   return (
-    <div className={`min-h-screen ${bg} p-10 space-y-12 transition-all`}>
-
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h1 className={`text-3xl font-bold ${textPrimary}`}>
-          EdStop Executive Dashboard
-        </h1>
-
-        <div className="flex gap-4">
-          <button
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg"
-          >
-            {autoRefresh ? "Auto Refresh ON" : "Enable Auto Refresh"}
-          </button>
-
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="px-4 py-2 bg-gray-500 text-white rounded-lg"
-          >
-            {darkMode ? "Light Mode" : "Dark Mode"}
-          </button>
-        </div>
-      </div>
-
-      {/* KPI GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <Card title="Gross Revenue" value={totals?.totalGross} card={card} text={textPrimary} muted={textMuted} />
-        <Card title="Net Profit" value={totals?.netProfit} card={card} text={textPrimary} muted={textMuted} />
-        <Card title="Avg Order Value" value={totals?.avgOrderValue} card={card} text={textPrimary} muted={textMuted} />
-        <Card title="Contribution Margin %" value={totals?.contributionMargin} card={card} text={textPrimary} muted={textMuted} />
-      </div>
-
-      {/* FORECAST */}
-      <Section title="30-Day Revenue Forecast" card={card} text={textPrimary}>
-        <Chart data={forecast} darkMode={darkMode} />
-      </Section>
-
-      {/* UNIT ECONOMICS */}
-      <Section title="Unit Economics" card={card} text={textPrimary}>
-        <p>Total Orders: {orderCount}</p>
-        <p>Commission Revenue: ₹{totals?.totalCommission}</p>
-        <p>Restaurant Payout: ₹{totals?.totalRestaurant}</p>
-        <p>Rider Cost: ₹{totals?.totalRider}</p>
-      </Section>
-
-      {/* SIMULATOR */}
-      <Section title="Contribution Margin Simulator" card={card} text={textPrimary}>
-        <div className="space-y-4">
-
+    <main className="min-h-screen bg-background text-white px-4 py-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <label className={textMuted}>Increase Commission (%)</label>
-            <input
-              type="range"
-              min="0"
-              max="10"
-              value={commissionRate}
-              onChange={(e) => setCommissionRate(Number(e.target.value))}
-              className="w-full"
-            />
+            <p className="text-sm text-white/50">Admin</p>
+            <h1 className="text-3xl font-bold">EdStop Command Center</h1>
+            <p className="mt-2 text-sm text-white/60">
+              Live launch operations overview for orders, restaurants, support,
+              marketplace, and lost & found.
+            </p>
           </div>
 
-          <div>
-            <label className={textMuted}>Rider Bonus (₹)</label>
-            <input
-              type="range"
-              min="0"
-              max="5000"
-              step="500"
-              value={riderBonus}
-              onChange={(e) => setRiderBonus(Number(e.target.value))}
-              className="w-full"
-            />
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/operations"
+              className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
+            >
+              Operations
+            </Link>
+
+            <Link
+              href="/admin/support"
+              className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
+            >
+              Support
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setAutoRefresh((value) => !value)}
+              className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
+            >
+              {autoRefresh ? 'Auto Refresh ON' : 'Auto Refresh OFF'}
+            </button>
           </div>
+        </header>
 
-          <div className="text-xl font-bold">
-            Simulated Profit: ₹{Math.round(simulatedProfit)}
-          </div>
-        </div>
-      </Section>
-
-      {/* WEEKLY */}
-      <Section title="Weekly Settlement" card={card} text={textPrimary}>
-        <button
-          onClick={downloadCSV}
-          className="mb-4 px-4 py-2 bg-indigo-600 text-white rounded-lg"
-        >
-          Download CSV
-        </button>
-
-        <Table
-          headers={['Week','Restaurant Payout','Rider Cost','Net Profit']}
-          rows={weeklyData.map((w)=>[
-            w.week,
-            `₹${Math.round(w.restaurant_payout)}`,
-            `₹${Math.round(w.rider_cost)}`,
-            `₹${Math.round(w.net_profit)}`
-          ])}
-        />
-      </Section>
-
-      {/* RESTAURANTS */}
-      <Section title="Restaurant Profitability" card={card} text={textPrimary}>
-        <Table
-          headers={['Restaurant','Orders','Net Profit']}
-          rows={restaurantData.map((r)=>[
-            r.restaurant,
-            r.orders,
-            `₹${Math.round(r.net_profit)}`
-          ])}
-        />
-      </Section>
-
-      {/* RIDERS */}
-      <Section title="Rider Performance" card={card} text={textPrimary}>
-        <Table
-          headers={['Rider','Deliveries','Total Earned']}
-          rows={riderData.map((r)=>[
-            r.rider,
-            r.deliveries,
-            `₹${Math.round(r.total_earned)}`
-          ])}
-        />
-      </Section>
-
-      {/* ANOMALIES */}
-      <Section title="Revenue Anomalies" card={card} text={textPrimary}>
-        {anomalies.length === 0 ? (
-          <p>No abnormal spikes detected</p>
-        ) : (
-          anomalies.map((a,i)=>(
-            <div key={i} className="text-red-500">
-              {a.day} → ₹{a.value}
-            </div>
-          ))
-        )}
-      </Section>
-
-    </div>
-  );
-}
-
-/* ================= COMPONENTS ================= */
-
-function Card({ title, value, card, text, muted }: CardProps) {
-  return (
-    <div className={`${card} p-6 rounded-xl border`}>
-      <p className={`${muted} text-sm mb-2`}>{title}</p>
-      <p className={`text-2xl font-bold ${text}`}>
-        ₹{Math.round(value || 0)}
-      </p>
-    </div>
-  );
-}
-
-function Section({ title, children, card, text }: SectionProps) {
-  return (
-    <div className={`${card} p-8 rounded-2xl border`}>
-      <h2 className={`text-2xl font-semibold mb-6 ${text}`}>{title}</h2>
-      {children}
-    </div>
-  );
-}
-
-function Chart({ data, darkMode }: ChartProps) {
-  return (
-    <div style={{ width: '100%', height: 300 }}>
-      <ResponsiveContainer>
-        <AreaChart data={data}>
-          <CartesianGrid stroke={darkMode ? "#334155" : "#e5e7eb"} />
-          <XAxis dataKey="day" stroke={darkMode ? "#94a3b8" : "#6b7280"} />
-          <YAxis stroke={darkMode ? "#94a3b8" : "#6b7280"} />
-          <Tooltip />
-          <Area
-            type="monotone"
-            dataKey="total_revenue"
-            stroke="#6366f1"
-            fill="#6366f1"
-            fillOpacity={0.2}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-function Table({ headers, rows }: TableProps) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead>
-          <tr>
-            {headers.map((h)=>
-              <th key={h} className="py-2">{h}</th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row,i)=>(
-            <tr key={i} className="border-t">
-              {row.map((cell,j)=>
-                <td key={j} className="py-2">{cell}</td>
-              )}
-            </tr>
+        <section className="flex flex-wrap gap-2">
+          {[7, 30, 90].map((days) => (
+            <Link
+              key={days}
+              href={`/admin/dashboard?range=${days}`}
+              className={`rounded-xl border px-4 py-2 text-sm ${
+                range === days
+                  ? 'border-purple-400 bg-purple-500/20 text-purple-100'
+                  : 'border-white/10 hover:bg-white/10'
+              }`}
+            >
+              {days} days
+            </Link>
           ))}
-        </tbody>
-      </table>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-4">
+          <Stat title="Today Orders" value={metrics.todayOrders} />
+          <Stat title="Today Revenue" value={money(metrics.todayRevenue)} />
+          <Stat title="Total Orders" value={metrics.totalOrders} />
+          <Stat title="Range Revenue" value={money(metrics.revenue)} />
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-4">
+          <Stat title="Ready Orders" value={metrics.readyOrders} />
+          <Stat title="Out For Delivery" value={metrics.outForDeliveryOrders} />
+          <Stat title="Delivered" value={metrics.deliveredOrders} />
+          <Stat title="Avg Order Value" value={money(metrics.averageOrderValue)} />
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-5">
+          <Stat title="Restaurants" value={metrics.restaurants} />
+          <Stat title="Open Outlets" value={metrics.openRestaurants} />
+          <Stat title="Active Outlets" value={metrics.activeRestaurants} />
+          <Stat title="Open Tickets" value={metrics.openTickets} />
+          <Stat title="Cancelled" value={metrics.cancelledOrders} />
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-3">
+          <Panel title="Order Pipeline">
+            <div className="space-y-3">
+              {orderStatusCounts.map((row) => (
+                <div
+                  key={row.status}
+                  className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3"
+                >
+                  <span className="text-sm capitalize text-white/70">
+                    {row.status.replaceAll('_', ' ')}
+                  </span>
+                  <span className="text-xl font-bold">{row.count}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Community Modules">
+            <div className="space-y-3">
+              <ModuleLink
+                title="Marketplace Active"
+                value={metrics.activeMarketplace}
+                href="/admin/marketplace"
+              />
+              <ModuleLink
+                title="Lost & Found Active"
+                value={metrics.activeLostFound}
+                href="/admin/lost-found"
+              />
+              <ModuleLink
+                title="Support Queue"
+                value={metrics.openTickets}
+                href="/admin/support"
+              />
+            </div>
+          </Panel>
+
+          <Panel title="Launch Actions">
+            <div className="grid gap-3">
+              <ActionLink href="/admin/operations" label="Open Operations Center" />
+              <ActionLink href="/vendor/dashboard" label="Preview Vendor Dashboard" />
+              <ActionLink href="/vendor/orders" label="Preview Vendor Orders" />
+              <ActionLink href="/rider-dashboard" label="Open Rider Dashboard" />
+            </div>
+          </Panel>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-2">
+          <Panel title="Top Restaurants">
+            <div className="space-y-3">
+              {topRestaurants.map((restaurant) => (
+                <div
+                  key={restaurant.name}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold">{restaurant.name}</h3>
+                      <p className="text-xs text-white/40">
+                        {restaurant.orders} orders
+                      </p>
+                    </div>
+                    <p className="font-bold">{money(restaurant.revenue)}</p>
+                  </div>
+                </div>
+              ))}
+
+              {topRestaurants.length === 0 && <Empty text="No restaurant order data yet." />}
+            </div>
+          </Panel>
+
+          <Panel title="Recent Orders">
+            <div className="space-y-3">
+              {recentOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold">#{order.order_number}</h3>
+                      <p className="text-sm text-white/50">
+                        {order.restaurant_name || order.order_type || 'Order'}
+                      </p>
+                      <p className="mt-1 text-xs text-white/35">
+                        {order.created_at
+                          ? new Date(order.created_at).toLocaleString('en-IN')
+                          : 'Date unavailable'}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="font-bold">
+                        {money(Number(order.final_amount || order.total_amount || 0))}
+                      </p>
+                      <p className="mt-1 rounded-full border border-white/10 px-3 py-1 text-xs text-white/60">
+                        {order.status}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {recentOrders.length === 0 && <Empty text="No recent orders found." />}
+            </div>
+          </Panel>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function Stat({
+  title,
+  value,
+}: {
+  title: string;
+  value: number | string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+      <p className="text-sm text-white/50">{title}</p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+      <h2 className="mb-4 text-xl font-bold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function ModuleLink({
+  title,
+  value,
+  href,
+}: {
+  title: string;
+  value: number;
+  href: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3 hover:bg-white/10"
+    >
+      <span className="text-sm text-white/70">{title}</span>
+      <span className="text-xl font-bold">{value}</span>
+    </Link>
+  );
+}
+
+function ActionLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm hover:bg-white/10"
+    >
+      {label}
+    </Link>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-white/50">
+      {text}
     </div>
   );
 }
