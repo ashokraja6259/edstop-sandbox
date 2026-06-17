@@ -260,6 +260,17 @@ const services: Service[] = [
     isActive: true,
     activeOrderCount: 0,
   },
+  {
+  id: 'marketplace',
+  title: 'Buy & Sell',
+  description:
+    'List items, discover student deals, and buy or sell within the IIT KGP community.',
+  icon: 'ShoppingCartIcon',
+  href: '/marketplace',
+  badge: 'New',
+  isActive: true,
+  activeOrderCount: 0,
+},
 ];
   const activeOrders =
     liveOrders.length > 0

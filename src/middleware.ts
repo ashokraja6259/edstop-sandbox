@@ -18,6 +18,7 @@ const studentRoutePrefixes = [
   '/student-profile',
   '/promotions',
   '/lost-found',
+  '/marketplace',
 ];
 
 const adminRoutePrefixes = [
@@ -134,6 +135,7 @@ export const config = {
     '/promotions-analytics-dashboard/:path*',
     '/promo-code-templates-management/:path*',
     '/template-review-queue/:path*',
+    '/marketplace/:path*',
     '/vendor/:path*',
   ],
 };
