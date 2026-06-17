@@ -23,6 +23,11 @@ export async function requireRole(requiredRole: AppRole) {
 
   const userRole = (profile?.role || 'student') as AppRole;
 
+  // Admin can access every protected role area.
+  if (userRole === 'admin') {
+    return { user, role: userRole };
+  }
+
   if (userRole !== requiredRole) {
     redirect('/unauthorized');
   }
