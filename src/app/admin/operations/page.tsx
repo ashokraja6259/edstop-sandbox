@@ -96,16 +96,13 @@ async function setOrderStatus(formData: FormData) {
     return;
   }
 
-  const { error } = await supabase
-    .from('orders')
-    .update({
-      status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', id);
+  const { error } = await supabase.rpc('admin_update_order_status', {
+    p_order_id: id,
+    p_status: status,
+  });
 
   if (error) {
-    console.error('Order status update failed:', {
+    console.error('Order status RPC failed:', {
       id,
       status,
       message: error.message,
@@ -226,6 +223,10 @@ export default async function AdminOperationsPage() {
                 </div>
               </div>
             ))}
+
+            {restaurantRows.length === 0 && (
+              <Empty text="No restaurants found." />
+            )}
           </Panel>
 
           <Panel title="Order Control Room">
@@ -313,9 +314,7 @@ export default async function AdminOperationsPage() {
               </div>
             ))}
 
-            {menuRows.length === 0 && (
-              <Empty text="No menu items found." />
-            )}
+            {menuRows.length === 0 && <Empty text="No menu items found." />}
           </Panel>
 
           <Panel title="Reports & Complaints">
