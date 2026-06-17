@@ -131,10 +131,11 @@ export default function LostFoundPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filteredItems.map((item) => (
-              <article
-                key={item.id}
-                className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-xl"
-              >
+             <Link
+  key={item.id}
+  href={`/lost-found/${item.id}`}
+  className="overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-xl transition hover:-translate-y-1 hover:bg-white/[0.09]"
+>
                 {item.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -175,7 +176,7 @@ export default function LostFoundPage() {
                     {item.contact_phone && <p>📞 {item.contact_phone}</p>}
                   </div>
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         )}
