@@ -76,7 +76,9 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
 
           response = NextResponse.next({
             request,
@@ -111,7 +113,9 @@ export async function middleware(request: NextRequest) {
 
   // Authenticated users should not stay on login page.
   if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL(getHomeRouteForRole(userRole), request.url));
+    return NextResponse.redirect(
+      new URL(getHomeRouteForRole(userRole), request.url)
+    );
   }
 
   // Unauthenticated users cannot access protected routes.
@@ -119,7 +123,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Enforce role-based route access.
+  // Admin can access every protected role area for launch operations/testing.
+  if (user && requiredRole && userRole === 'admin') {
+    return response;
+  }
+
+  // Enforce role-based route access for non-admin users.
   if (user && requiredRole && userRole !== requiredRole) {
     return NextResponse.redirect(new URL('/unauthorized', request.url));
   }
