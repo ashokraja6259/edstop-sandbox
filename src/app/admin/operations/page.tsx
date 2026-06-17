@@ -7,6 +7,16 @@ import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+const ORDER_STATUSES = [
+  'pending',
+  'confirmed',
+  'preparing',
+  'ready',
+  'out_for_delivery',
+  'delivered',
+  'cancelled',
+];
+
 async function setRestaurantOpen(formData: FormData) {
   'use server';
 
@@ -16,11 +26,19 @@ async function setRestaurantOpen(formData: FormData) {
   const id = String(formData.get('id') || '');
   const isOpen = String(formData.get('is_open')) === 'true';
 
-  if (id) {
-    await supabase
-      .from('restaurants')
-      .update({ is_open: isOpen, updated_at: new Date().toISOString() })
-      .eq('id', id);
+  if (!id) return;
+
+  const { error } = await supabase
+    .from('restaurants')
+    .update({
+      is_open: isOpen,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Restaurant open/close failed:', error);
+    return;
   }
 
   revalidatePath('/admin/operations');
@@ -35,11 +53,19 @@ async function setMenuItemAvailable(formData: FormData) {
   const id = String(formData.get('id') || '');
   const isAvailable = String(formData.get('is_available')) === 'true';
 
-  if (id) {
-    await supabase
-      .from('menu_items')
-      .update({ is_available: isAvailable, updated_at: new Date().toISOString() })
-      .eq('id', id);
+  if (!id) return;
+
+  const { error } = await supabase
+    .from('menu_items')
+    .update({
+      is_available: isAvailable,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('Menu item availability update failed:', error);
+    return;
   }
 
   revalidatePath('/admin/operations');
@@ -55,7 +81,19 @@ async function setOrderStatus(formData: FormData) {
   const status = String(formData.get('status') || '');
 
   if (!id || !status) {
-    throw new Error('Missing order id or status');
+    console.error('Order status update skipped: missing id/status', {
+      id,
+      status,
+    });
+    return;
+  }
+
+  if (!ORDER_STATUSES.includes(status)) {
+    console.error('Order status update skipped: invalid status', {
+      id,
+      status,
+    });
+    return;
   }
 
   const { error } = await supabase
@@ -67,7 +105,15 @@ async function setOrderStatus(formData: FormData) {
     .eq('id', id);
 
   if (error) {
-    throw new Error(`Order status update failed: ${error.message}`);
+    console.error('Order status update failed:', {
+      id,
+      status,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
+    return;
   }
 
   revalidatePath('/admin/operations');
@@ -95,7 +141,9 @@ export default async function AdminOperationsPage() {
 
       supabase
         .from('menu_items')
-        .select('id, restaurant_id, name, price, category, is_available, stock_level')
+        .select(
+          'id, restaurant_id, name, price, category, is_available, stock_level'
+        )
         .order('name', { ascending: true })
         .limit(100),
     ]);
@@ -104,14 +152,18 @@ export default async function AdminOperationsPage() {
   const orderRows = orders ?? [];
   const menuRows = menuItems ?? [];
 
-  const activeOrders = orderRows.filter((o) =>
-    ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery'].includes(
-      String(o.status)
-    )
+  const activeOrders = orderRows.filter((order) =>
+    [
+      'pending',
+      'confirmed',
+      'preparing',
+      'ready',
+      'out_for_delivery',
+    ].includes(String(order.status))
   );
 
-  const darkStoreOrders = orderRows.filter((o) =>
-    ['store', 'dark-store', 'dark_store'].includes(String(o.order_type))
+  const darkStoreOrders = orderRows.filter((order) =>
+    ['store', 'dark-store', 'dark_store'].includes(String(order.order_type))
   );
 
   return (
@@ -136,28 +188,39 @@ export default async function AdminOperationsPage() {
 
         <section className="grid gap-4 md:grid-cols-4">
           <Stat title="Restaurants" value={restaurantRows.length} />
-          <Stat title="Open Outlets" value={restaurantRows.filter((r) => r.is_open).length} />
+          <Stat
+            title="Open Outlets"
+            value={restaurantRows.filter((restaurant) => restaurant.is_open).length}
+          />
           <Stat title="Active Orders" value={activeOrders.length} />
           <Stat title="Dark Store" value={darkStoreOrders.length} />
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
           <Panel title="Restaurants">
-            {restaurantRows.map((r) => (
-              <div key={r.id} className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            {restaurantRows.map((restaurant) => (
+              <div
+                key={restaurant.id}
+                className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              >
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold">{r.name}</h3>
+                    <h3 className="font-semibold">{restaurant.name}</h3>
                     <p className="text-xs text-white/40">
-                      {r.is_active ? 'Active' : 'Inactive'} · {r.is_available ? 'Visible' : 'Hidden'}
+                      {restaurant.is_active ? 'Active' : 'Inactive'} ·{' '}
+                      {restaurant.is_available ? 'Visible' : 'Hidden'}
                     </p>
                   </div>
 
                   <form action={setRestaurantOpen}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <input type="hidden" name="is_open" value={r.is_open ? 'false' : 'true'} />
+                    <input type="hidden" name="id" value={restaurant.id} />
+                    <input
+                      type="hidden"
+                      name="is_open"
+                      value={restaurant.is_open ? 'false' : 'true'}
+                    />
                     <button className="rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10">
-                      {r.is_open ? 'Close' : 'Open'}
+                      {restaurant.is_open ? 'Close' : 'Open'}
                     </button>
                   </form>
                 </div>
@@ -166,33 +229,46 @@ export default async function AdminOperationsPage() {
           </Panel>
 
           <Panel title="Order Control Room">
-            {orderRows.map((o) => (
-              <div key={o.id} className="mb-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+            {orderRows.map((order) => (
+              <div
+                key={order.id}
+                className="mb-3 rounded-2xl border border-white/10 bg-black/20 p-4"
+              >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold">#{o.order_number}</h3>
-                    <p className="text-sm text-white/50">{o.restaurant_name || o.order_type}</p>
+                    <h3 className="font-semibold">#{order.order_number}</h3>
+                    <p className="text-sm text-white/50">
+                      {order.restaurant_name || order.order_type || 'Order'}
+                    </p>
                     <p className="text-xs text-white/40">
-                      ₹{Number(o.final_amount || o.total_amount || 0).toFixed(2)} ·{' '}
-                      {o.payment_method || 'COD'}
+                      ₹
+                      {Number(
+                        order.final_amount || order.total_amount || 0
+                      ).toFixed(2)}{' '}
+                      · {order.payment_method || 'COD'}
+                    </p>
+                    <p className="mt-1 text-xs text-white/30">
+                      {order.created_at
+                        ? new Date(order.created_at).toLocaleString('en-IN')
+                        : 'Date unavailable'}
                     </p>
                   </div>
 
                   <form action={setOrderStatus} className="flex gap-2">
-                    <input type="hidden" name="id" value={o.id} />
+                    <input type="hidden" name="id" value={order.id} />
+
                     <select
                       name="status"
-                      defaultValue={String(o.status)}
-                      className="rounded-xl bg-black border border-white/10 px-3 py-2 text-sm"
+                      defaultValue={String(order.status)}
+                      className="rounded-xl bg-black border border-white/10 px-3 py-2 text-sm text-white"
                     >
-                    <option value="pending">pending</option>
-<option value="confirmed">confirmed</option>
-<option value="preparing">preparing</option>
-<option value="ready">ready</option>
-<option value="out_for_delivery">out_for_delivery</option>
-<option value="delivered">delivered</option>
-<option value="cancelled">cancelled</option>
+                      {ORDER_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
                     </select>
+
                     <button className="rounded-xl border border-white/10 px-3 py-2 text-sm hover:bg-white/10">
                       Save
                     </button>
@@ -200,16 +276,24 @@ export default async function AdminOperationsPage() {
                 </div>
               </div>
             ))}
+
+            {orderRows.length === 0 && (
+              <Empty text="No recent orders found." />
+            )}
           </Panel>
 
           <Panel title="Menu Availability">
             {menuRows.map((item) => (
-              <div key={item.id} className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div
+                key={item.id}
+                className="mb-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+              >
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <h3 className="font-semibold">{item.name}</h3>
                     <p className="text-xs text-white/40">
-                      {item.category || 'Menu'} · ₹{Number(item.price || 0).toFixed(2)} · Stock{' '}
+                      {item.category || 'Menu'} · ₹
+                      {Number(item.price || 0).toFixed(2)} · Stock{' '}
                       {item.stock_level ?? 0}
                     </p>
                   </div>
@@ -228,12 +312,25 @@ export default async function AdminOperationsPage() {
                 </div>
               </div>
             ))}
+
+            {menuRows.length === 0 && (
+              <Empty text="No menu items found." />
+            )}
           </Panel>
 
           <Panel title="Reports & Complaints">
-            <Placeholder title="Complaints" text="Add support tickets table in next migration." />
-            <Placeholder title="Marketplace Reports" text="Add marketplace moderation queue." />
-            <Placeholder title="Lost & Found Reports" text="Add lost/found report queue." />
+            <Placeholder
+              title="Complaints"
+              text="Add support tickets table in next migration."
+            />
+            <Placeholder
+              title="Marketplace Reports"
+              text="Add marketplace moderation queue."
+            />
+            <Placeholder
+              title="Lost & Found Reports"
+              text="Add lost/found report queue."
+            />
           </Panel>
         </section>
       </div>
@@ -250,12 +347,26 @@ function Stat({ title, value }: { title: string; value: number }) {
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
       <h2 className="mb-4 text-xl font-bold">{title}</h2>
       {children}
     </section>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-white/10 p-6 text-center text-sm text-white/50">
+      {text}
+    </div>
   );
 }
 
