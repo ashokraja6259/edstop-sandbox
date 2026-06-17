@@ -47,15 +47,22 @@ async function advanceOrderStatus(formData: FormData) {
   if (orderBefore?.user_id) {
     const statusText = nextStatus.replaceAll('_', ' ');
 
-    await supabase.from('notifications').insert({
-      user_id: orderBefore.user_id,
-      title: `Order ${statusText}`,
-      message: `Your order #${orderBefore.order_number} from ${
-        orderBefore.restaurant_name || 'the restaurant'
-      } is now ${statusText}.`,
-      type: 'order',
-      link_url: `/orders/${orderBefore.id}`,
-    });
+    const { error: notificationError } = await supabase.rpc(
+      'create_user_notification',
+      {
+        p_user_id: orderBefore.user_id,
+        p_title: `Order ${statusText}`,
+        p_message: `Your order #${orderBefore.order_number} from ${
+          orderBefore.restaurant_name || 'the restaurant'
+        } is now ${statusText}.`,
+        p_type: 'order',
+        p_link_url: `/orders/${orderBefore.id}`,
+      }
+    );
+
+    if (notificationError) {
+      console.error('Order notification failed:', notificationError);
+    }
   }
 
   revalidatePath('/vendor/orders');
@@ -166,7 +173,9 @@ export default async function VendorOrdersPage({
         <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm text-white/50">
-              {role === 'admin' ? 'Admin Preview · Vendor Orders' : 'Vendor Orders'}
+              {role === 'admin'
+                ? 'Admin Preview · Vendor Orders'
+                : 'Vendor Orders'}
             </p>
             <h1 className="text-3xl font-bold">{restaurant.name}</h1>
             <p className="mt-2 text-sm text-white/60">
@@ -216,7 +225,9 @@ export default async function VendorOrdersPage({
 
         <section className="grid gap-4 md:grid-cols-4">
           {COLUMNS.map((status) => {
-            const count = orderRows.filter((order) => order.status === status).length;
+            const count = orderRows.filter(
+              (order) => order.status === status
+            ).length;
 
             return <Stat key={status} title={status} value={String(count)} />;
           })}
@@ -224,7 +235,9 @@ export default async function VendorOrdersPage({
 
         <section className="grid gap-5 xl:grid-cols-4">
           {COLUMNS.map((status) => {
-            const columnOrders = orderRows.filter((order) => order.status === status);
+            const columnOrders = orderRows.filter(
+              (order) => order.status === status
+            );
 
             return (
               <div
@@ -256,7 +269,9 @@ export default async function VendorOrdersPage({
                             </h3>
                             <p className="mt-1 text-xs text-white/40">
                               {order.created_at
-                                ? new Date(order.created_at).toLocaleString('en-IN')
+                                ? new Date(order.created_at).toLocaleString(
+                                    'en-IN'
+                                  )
                                 : 'Date unavailable'}
                             </p>
                           </div>
@@ -280,7 +295,11 @@ export default async function VendorOrdersPage({
 
                         {nextStatus && (
                           <form action={advanceOrderStatus} className="mt-4">
-                            <input type="hidden" name="order_id" value={order.id} />
+                            <input
+                              type="hidden"
+                              name="order_id"
+                              value={order.id}
+                            />
                             <input
                               type="hidden"
                               name="next_status"
@@ -319,7 +338,9 @@ export default async function VendorOrdersPage({
 function Stat({ title, value }: { title: string; value: string }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-      <p className="text-sm capitalize text-white/50">{title.replaceAll('_', ' ')}</p>
+      <p className="text-sm capitalize text-white/50">
+        {title.replaceAll('_', ' ')}
+      </p>
       <p className="mt-2 text-2xl font-bold">{value}</p>
     </div>
   );
