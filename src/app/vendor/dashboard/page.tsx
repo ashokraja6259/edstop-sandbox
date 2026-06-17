@@ -54,15 +54,6 @@ async function setMenuItemAvailable(formData: FormData) {
 
   if (!itemId || !restaurantId) return;
 
-  let query = supabase
-    .from('menu_items')
-    .update({
-      is_available: isAvailable,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', itemId)
-    .eq('restaurant_id', restaurantId);
-
   if (role !== 'admin') {
     const { data: ownedRestaurant } = await supabase
       .from('restaurants')
@@ -77,7 +68,14 @@ async function setMenuItemAvailable(formData: FormData) {
     }
   }
 
-  const { error } = await query;
+  const { error } = await supabase
+    .from('menu_items')
+    .update({
+      is_available: isAvailable,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', itemId)
+    .eq('restaurant_id', restaurantId);
 
   if (error) {
     console.error('Vendor menu item update failed:', error);
@@ -111,29 +109,44 @@ async function setVendorOrderStatus(formData: FormData) {
   revalidatePath('/vendor/dashboard');
 }
 
-export default async function VendorDashboardPage() {
+type VendorDashboardPageProps = {
+  searchParams?: {
+    restaurantId?: string;
+  };
+};
+
+export default async function VendorDashboardPage({
+  searchParams,
+}: VendorDashboardPageProps) {
   const { user, role } = await requireRole('vendor');
   const supabase = await createClient();
 
-  let restaurantQuery = supabase
-    .from('restaurants')
-    .select(
-      'id, name, is_open, is_active, is_available, rating, delivery_time, minimum_order, created_at'
-    )
-    .order('created_at', { ascending: false })
-    .limit(1);
+  const selectedRestaurantId = searchParams?.restaurantId || '';
 
-  if (role !== 'admin') {
-    restaurantQuery = restaurantQuery.eq('owner_id', user.id);
-  }
-
-  const { data: restaurantRows, error: restaurantError } = await restaurantQuery;
+  const { data: restaurantRows, error: restaurantError } =
+    role === 'admin'
+      ? await supabase
+          .from('restaurants')
+          .select(
+            'id, name, is_open, is_active, is_available, rating, delivery_time, minimum_order, created_at'
+          )
+          .order('name', { ascending: true })
+      : await supabase
+          .from('restaurants')
+          .select(
+            'id, name, is_open, is_active, is_available, rating, delivery_time, minimum_order, created_at'
+          )
+          .eq('owner_id', user.id)
+          .order('name', { ascending: true });
 
   if (restaurantError) {
     console.error('Vendor restaurant fetch failed:', restaurantError);
   }
 
-  const restaurant = restaurantRows?.[0] ?? null;
+  const restaurant =
+    restaurantRows?.find((row) => row.id === selectedRestaurantId) ||
+    restaurantRows?.[0] ||
+    null;
 
   if (!restaurant) {
     return (
@@ -174,6 +187,7 @@ export default async function VendorDashboardPage() {
 
   const orderRows = orders ?? [];
   const menuRows = menuItems ?? [];
+  const allRestaurantRows = restaurantRows ?? [];
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -193,10 +207,12 @@ export default async function VendorDashboardPage() {
   return (
     <main className="min-h-screen bg-background text-white px-4 py-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex items-center justify-between gap-4">
+        <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm text-white/50">
-              {role === 'admin' ? 'Admin Preview · Vendor Dashboard' : 'Vendor Dashboard'}
+              {role === 'admin'
+                ? 'Admin Preview · Vendor Dashboard'
+                : 'Vendor Dashboard'}
             </p>
             <h1 className="text-3xl font-bold">{restaurant.name}</h1>
             <p className="mt-2 text-sm text-white/60">
@@ -204,7 +220,30 @@ export default async function VendorDashboardPage() {
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {role === 'admin' && (
+              <form>
+                <select
+                  name="restaurantId"
+                  defaultValue={restaurant.id}
+                  className="rounded-xl border border-white/10 bg-black px-4 py-2 text-sm text-white"
+                >
+                  {allRestaurantRows.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="submit"
+                  className="ml-2 rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
+                >
+                  View Outlet
+                </button>
+              </form>
+            )}
+
             {role === 'admin' && (
               <Link
                 href="/admin/operations"
@@ -246,8 +285,11 @@ export default async function VendorDashboardPage() {
                   <div>
                     <h3 className="font-semibold">#{order.order_number}</h3>
                     <p className="text-xs text-white/40">
-                      ₹{Number(order.final_amount || order.total_amount || 0).toFixed(2)} ·{' '}
-                      {order.payment_method || 'COD'}
+                      ₹
+                      {Number(
+                        order.final_amount || order.total_amount || 0
+                      ).toFixed(2)}{' '}
+                      · {order.payment_method || 'COD'}
                     </p>
                     <p className="mt-1 text-xs text-white/30">
                       {order.created_at
@@ -263,7 +305,9 @@ export default async function VendorDashboardPage() {
                       defaultValue={String(order.status)}
                       className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white"
                     >
-                      <option value={String(order.status)}>{String(order.status)}</option>
+                      <option value={String(order.status)}>
+                        {String(order.status)}
+                      </option>
                       {VENDOR_ORDER_STATUSES.map((status) => (
                         <option key={status} value={status}>
                           {status}
@@ -291,14 +335,19 @@ export default async function VendorDashboardPage() {
                   <div>
                     <h3 className="font-semibold">{item.name}</h3>
                     <p className="text-xs text-white/40">
-                      {item.category || 'Menu'} · ₹{Number(item.price || 0).toFixed(2)} · Stock{' '}
+                      {item.category || 'Menu'} · ₹
+                      {Number(item.price || 0).toFixed(2)} · Stock{' '}
                       {item.stock_level ?? 0}
                     </p>
                   </div>
 
                   <form action={setMenuItemAvailable}>
                     <input type="hidden" name="item_id" value={item.id} />
-                    <input type="hidden" name="restaurant_id" value={restaurant.id} />
+                    <input
+                      type="hidden"
+                      name="restaurant_id"
+                      value={restaurant.id}
+                    />
                     <input
                       type="hidden"
                       name="is_available"
