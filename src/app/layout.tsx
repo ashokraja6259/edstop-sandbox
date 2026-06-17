@@ -4,10 +4,12 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import InstallAppBanner from '@/components/pwa/InstallAppBanner';
 
 export const metadata: Metadata = {
   title: 'EdStop',
-  description: 'IIT Kharagpur campus commerce, food, essentials, orders and student services.',
+  description:
+    'IIT Kharagpur campus commerce, food, essentials, orders and student services.',
   applicationName: 'EdStop',
   appleWebApp: {
     capable: true,
@@ -22,7 +24,9 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
       { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
   },
 };
 
@@ -42,7 +46,10 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className="min-h-screen bg-background text-foreground antialiased">
         <AuthProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            {children}
+            <InstallAppBanner />
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>

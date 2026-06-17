@@ -17,6 +17,7 @@ const studentRoutePrefixes = [
   '/orders',
   '/student-profile',
   '/promotions',
+  '/lost-found',
 ];
 
 const adminRoutePrefixes = [
@@ -83,17 +84,14 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const requiredRole = getRequiredRole(pathname);
 
-  // Authenticated users should not stay on login page.
   if (user && pathname === '/login') {
     return NextResponse.redirect(new URL('/student-dashboard', request.url));
   }
 
-  // Unauthenticated users cannot access protected routes.
   if (!user && requiredRole) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Enforce role-based route access.
   if (user && requiredRole) {
     const { data: profile } = await supabase
       .from('user_profiles')
@@ -126,6 +124,7 @@ export const config = {
     '/orders/:path*',
     '/student-profile/:path*',
     '/promotions/:path*',
+    '/lost-found/:path*',
     '/login',
     '/login/:path*',
     '/rider/:path*',

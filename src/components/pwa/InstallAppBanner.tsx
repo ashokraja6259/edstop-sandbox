@@ -6,7 +6,10 @@ import { useEffect, useMemo, useState } from 'react';
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+  userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
 };
 
 const DISMISS_KEY = 'edstop-install-banner-dismissed-at';
@@ -44,7 +47,8 @@ const recentlyDismissed = () => {
 };
 
 export default function InstallAppBanner() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [showIosHelp, setShowIosHelp] = useState(false);
 
@@ -126,7 +130,8 @@ export default function InstallAppBanner() {
             <div>
               <h2 className="text-sm font-black sm:text-base">Install EdStop</h2>
               <p className="mt-1 text-xs leading-5 text-white/60 sm:text-sm">
-                Add EdStop to your home screen for faster food, essentials, orders, and campus services.
+                Add EdStop to your home screen for faster food, essentials,
+                orders, and campus services.
               </p>
             </div>
 
@@ -142,7 +147,8 @@ export default function InstallAppBanner() {
 
           {showIosHelp && (
             <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.06] p-3 text-xs leading-5 text-white/70">
-              On iPhone or iPad, tap the browser share button, then choose <span className="font-bold text-white">Add to Home Screen</span>.
+              On iPhone or iPad, tap the browser share button, then choose{' '}
+              <span className="font-bold text-white">Add to Home Screen</span>.
             </div>
           )}
 
