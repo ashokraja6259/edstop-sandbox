@@ -457,19 +457,18 @@ const services: Service[] = [
             </div>
 
             <div className="flex items-center gap-2 relative">
-              <button
-                onClick={() => alert('Notifications coming soon!')}
-                className="relative flex items-center justify-center w-10 h-10 rounded-xl glass hover:bg-white/10 transition-smooth press-scale focus-ring"
-              >
-                <Icon
-                  name="BellIcon"
-                  size={20}
-                  variant="outline"
-                  className="text-white/80"
-                />
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-pink-500 rounded-full border-2 border-background animate-pulse"></span>
-              </button>
-
+             <Link
+  href="/notifications"
+  className="relative flex items-center justify-center w-10 h-10 rounded-xl glass hover:bg-white/10 transition-smooth press-scale focus-ring"
+>
+  <Icon
+    name="BellIcon"
+    size={20}
+    variant="outline"
+    className="text-white/80"
+  />
+  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-pink-500 rounded-full border-2 border-background animate-pulse"></span>
+</Link>
               <div
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl glass hover:bg-white/10 transition-smooth press-scale cursor-pointer"
