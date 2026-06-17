@@ -227,30 +227,40 @@ const StudentDashboardInteractive = () => {
           },
         ];
 
-  const services: Service[] = [
-    {
-      id: 'food-delivery',
-      title: 'Food Delivery',
-      description:
-        'Order from campus restaurants with free delivery above ₹399. Minimum order ₹149.',
-      icon: 'ShoppingBagIcon',
-      href: '/food-ordering-interface',
-      badge: 'Free Delivery ₹399+',
-      isActive: true,
-      activeOrderCount: 1,
-    },
-    {
-      id: 'dark-store',
-      title: 'Dark Store Shopping',
-      description: 'Quick essentials delivery with free shipping. Minimum order ₹99.',
-      icon: 'ShoppingCartIcon',
-      href: '/dark-store-shopping',
-      badge: 'Free Delivery',
-      isActive: true,
-      activeOrderCount: 0,
-    },
-  ];
-
+const services: Service[] = [
+  {
+    id: 'food-delivery',
+    title: 'Food Delivery',
+    description:
+      'Order from campus restaurants with free delivery above ₹399. Minimum order ₹149.',
+    icon: 'ShoppingBagIcon',
+    href: '/food-ordering-interface',
+    badge: 'Free Delivery ₹399+',
+    isActive: true,
+    activeOrderCount: 1,
+  },
+  {
+    id: 'dark-store',
+    title: 'Dark Store Shopping',
+    description: 'Quick essentials delivery with free shipping. Minimum order ₹99.',
+    icon: 'ShoppingCartIcon',
+    href: '/dark-store-shopping',
+    badge: 'Free Delivery',
+    isActive: true,
+    activeOrderCount: 0,
+  },
+  {
+    id: 'lost-found',
+    title: 'Lost & Found',
+    description:
+      'Report lost items, post found items, and help IIT KGP students recover belongings.',
+    icon: 'ShoppingBagIcon',
+    href: '/lost-found',
+    badge: 'New',
+    isActive: true,
+    activeOrderCount: 0,
+  },
+];
   const activeOrders =
     liveOrders.length > 0
       ? liveOrders
