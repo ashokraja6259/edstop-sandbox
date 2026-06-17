@@ -54,11 +54,20 @@ async function setOrderStatus(formData: FormData) {
   const id = String(formData.get('id') || '');
   const status = String(formData.get('status') || '');
 
-  if (id && status) {
-    await supabase
-      .from('orders')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', id);
+  if (!id || !status) {
+    throw new Error('Missing order id or status');
+  }
+
+  const { error } = await supabase
+    .from('orders')
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Order status update failed: ${error.message}`);
   }
 
   revalidatePath('/admin/operations');
