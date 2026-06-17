@@ -28,6 +28,12 @@ async function advanceOrderStatus(formData: FormData) {
     return;
   }
 
+  const { data: orderBefore } = await supabase
+    .from('orders')
+    .select('id, user_id, order_number, restaurant_name')
+    .eq('id', orderId)
+    .maybeSingle();
+
   const { error } = await supabase.rpc('vendor_update_order_status', {
     p_order_id: orderId,
     p_status: nextStatus,
@@ -38,8 +44,23 @@ async function advanceOrderStatus(formData: FormData) {
     return;
   }
 
+  if (orderBefore?.user_id) {
+    const statusText = nextStatus.replaceAll('_', ' ');
+
+    await supabase.from('notifications').insert({
+      user_id: orderBefore.user_id,
+      title: `Order ${statusText}`,
+      message: `Your order #${orderBefore.order_number} from ${
+        orderBefore.restaurant_name || 'the restaurant'
+      } is now ${statusText}.`,
+      type: 'order',
+      link_url: `/orders/${orderBefore.id}`,
+    });
+  }
+
   revalidatePath('/vendor/orders');
   revalidatePath('/vendor/dashboard');
+  revalidatePath('/notifications');
 }
 
 type VendorOrdersPageProps = {
