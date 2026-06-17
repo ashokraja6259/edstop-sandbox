@@ -3,6 +3,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+type AppRole = 'student' | 'admin' | 'rider' | 'vendor';
+
 const studentRoutePrefixes = [
   '/dashboard',
   '/student-dashboard',
@@ -32,24 +34,32 @@ const adminRoutePrefixes = [
 const riderRoutePrefixes = ['/rider', '/rider-dashboard'];
 const vendorRoutePrefixes = ['/vendor'];
 
-function getRequiredRole(pathname: string) {
+function getRequiredRole(pathname: string): AppRole | null {
   if (adminRoutePrefixes.some((route) => pathname.startsWith(route))) {
-    return 'admin' as const;
+    return 'admin';
   }
 
   if (riderRoutePrefixes.some((route) => pathname.startsWith(route))) {
-    return 'rider' as const;
+    return 'rider';
   }
 
   if (vendorRoutePrefixes.some((route) => pathname.startsWith(route))) {
-    return 'vendor' as const;
+    return 'vendor';
   }
 
   if (studentRoutePrefixes.some((route) => pathname.startsWith(route))) {
-    return 'student' as const;
+    return 'student';
   }
 
   return null;
+}
+
+function getHomeRouteForRole(role: AppRole) {
+  if (role === 'admin') return '/admin/dashboard';
+  if (role === 'rider') return '/rider-dashboard';
+  if (role === 'vendor') return '/vendor/dashboard';
+
+  return '/student-dashboard';
 }
 
 export async function middleware(request: NextRequest) {
@@ -67,9 +77,11 @@ export async function middleware(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+
           response = NextResponse.next({
             request,
           });
+
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
           });
@@ -85,26 +97,31 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const requiredRole = getRequiredRole(pathname);
 
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/student-dashboard', request.url));
-  }
+  let userRole: AppRole = 'student';
 
-  if (!user && requiredRole) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  if (user && requiredRole) {
+  if (user) {
     const { data: profile } = await supabase
       .from('user_profiles')
       .select('role')
       .eq('id', user.id)
       .maybeSingle();
 
-    const userRole = (profile?.role || 'student') as 'student' | 'admin' | 'rider' | 'vendor';
+    userRole = (profile?.role || 'student') as AppRole;
+  }
 
-    if (userRole !== requiredRole) {
-      return NextResponse.redirect(new URL('/unauthorized', request.url));
-    }
+  // Authenticated users should not stay on login page.
+  if (user && pathname === '/login') {
+    return NextResponse.redirect(new URL(getHomeRouteForRole(userRole), request.url));
+  }
+
+  // Unauthenticated users cannot access protected routes.
+  if (!user && requiredRole) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Enforce role-based route access.
+  if (user && requiredRole && userRole !== requiredRole) {
+    return NextResponse.redirect(new URL('/unauthorized', request.url));
   }
 
   return response;
