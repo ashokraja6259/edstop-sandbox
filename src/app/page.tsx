@@ -1,72 +1,226 @@
-// FILE: src/app/page.tsx
+// FILE: src/app/login/page.tsx
 
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
-const liveServices = [
-  {
-    title: 'Food Ordering',
-    description:
-      'Order from campus restaurants and track your food orders from one place.',
-    href: '/food-ordering-interface',
-    icon: '🍔',
-    badge: 'Live',
-  },
-  {
-    title: 'Dark Store',
-    description:
-      'Get daily essentials, snacks, and quick campus needs delivered faster.',
-    href: '/dark-store-shopping',
-    icon: '🛒',
-    badge: 'Live',
-  },
-  {
-    title: 'Lost & Found',
-    description:
-      'Report lost items, post found items, and help students recover belongings.',
-    href: '/lost-found',
-    icon: '🔎',
-    badge: 'New',
-  },
-  {
-    title: 'Buy & Sell',
-    description:
-      'Buy, sell, or give away useful items within the IIT KGP student community.',
-    href: '/marketplace',
-    icon: '💸',
-    badge: 'New',
-  },
+type AuthMode = 'email' | 'phone';
+
+const inputClassName =
+  'w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/30 disabled:cursor-not-allowed disabled:opacity-60';
+
+const smallInputClassName =
+  'w-full rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/30 disabled:cursor-not-allowed disabled:opacity-60';
+
+const features = [
+  'Food ordering',
+  'Dark store essentials',
+  'Order history',
+  'Wallet balance',
+  'Lost & Found live',
+  'Buy & Sell marketplace live',
 ];
 
-const steps = [
-  'Create your EdStop account',
-  'Complete your student profile',
-  'Use food, essentials, Lost & Found, and marketplace',
-  'Install EdStop for faster access',
-];
+export default function LoginPage() {
+  const [authMode, setAuthMode] = useState<AuthMode>('email');
+  const [isSignUp, setIsSignUp] = useState(false);
 
-const upcoming = [
-  'Student Blogs',
-  'Campus Deals',
-  'AI Companion',
-  'Events & Announcements',
-];
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-const faqs = [
-  {
-    q: 'Is EdStop only for IIT Kharagpur?',
-    a: 'Yes, EdStop is currently focused on IIT Kharagpur campus use and launch testing.',
-  },
-  {
-    q: 'Can I install EdStop like an app?',
-    a: 'Yes. EdStop supports PWA install, so you can add it to your phone home screen.',
-  },
-  {
-    q: 'Are Lost & Found and Buy & Sell live?',
-    a: 'Yes. Both modules are live in V1 and available after login.',
-  },
-];
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
 
-export default function HomePage() {
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const {
+    signIn,
+    signUp,
+    user,
+    loading: authLoading,
+    resetPassword,
+    resendVerificationEmail,
+    signInWithPhoneOtp,
+    verifyPhoneOtp,
+  } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      window.location.assign('/student-dashboard');
+    }
+  }, [authLoading, user]);
+
+  const isAllowedLaunchEmail = (value: string) => {
+    const normalized = value.trim().toLowerCase();
+
+    return (
+      normalized.endsWith('@kgpian.iitkgp.ac.in') ||
+      normalized.endsWith('@iitkgp.ac.in') ||
+      normalized.endsWith('@gmail.com')
+    );
+  };
+
+  const handleEmailSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setSuccess('');
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
+    if (isSignUp && !fullName.trim()) {
+      setError('Please enter your full name.');
+      return;
+    }
+
+    if (isSignUp && !isAllowedLaunchEmail(normalizedEmail)) {
+      setError(
+        'Please use your IIT KGP email. For launch testing, Gmail is also allowed.'
+      );
+      return;
+    }
+
+    if (isSignUp && !acceptedTerms) {
+      setError('Please accept EdStop Terms and Privacy Policy to continue.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      if (isSignUp) {
+        await signUp(normalizedEmail, password, fullName);
+        setSuccess(
+          `Verification email sent to ${normalizedEmail}. Please open the email and confirm your account before signing in.`
+        );
+        setPassword('');
+        setFullName('');
+        setAcceptedTerms(false);
+      } else {
+        await signIn(normalizedEmail, password);
+        window.location.assign('/student-dashboard');
+      }
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : `Failed to ${isSignUp ? 'sign up' : 'sign in'}`;
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError('');
+    setSuccess('');
+
+    const normalizedEmail = forgotEmail.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setError('Enter your email to reset password.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await resetPassword(normalizedEmail);
+      setSuccess('Password reset link sent. Please check your inbox.');
+      setShowForgotPassword(false);
+      setForgotEmail('');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to send reset link.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setError('');
+    setSuccess('');
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setError('Enter your email address first.');
+      return;
+    }
+
+    if (!isAllowedLaunchEmail(normalizedEmail)) {
+      setError(
+        'Please use your IIT KGP email. For launch testing, Gmail is also allowed.'
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await resendVerificationEmail(normalizedEmail);
+      setSuccess(`Verification email resent to ${normalizedEmail}.`);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to resend verification email.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePhoneOtpSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!phone.trim()) {
+      setError('Please enter your phone number.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      if (!otpSent) {
+        await signInWithPhoneOtp(phone.trim());
+        setOtpSent(true);
+        setSuccess('OTP sent to your phone number.');
+        return;
+      }
+
+      if (!otp.trim()) {
+        setError('Please enter the OTP.');
+        return;
+      }
+
+      await verifyPhoneOtp(phone.trim(), otp.trim());
+      window.location.assign('/student-dashboard');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Phone OTP login failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <main className="min-h-screen overflow-hidden bg-slate-950 text-white">
       <div className="fixed inset-0 pointer-events-none">
@@ -75,235 +229,282 @@ export default function HomePage() {
         <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-indigo-500/25 blur-3xl" />
       </div>
 
-      <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 text-xl font-black shadow-lg shadow-purple-500/25">
-            E
-          </div>
-          <div>
-            <p className="text-lg font-black leading-none">EdStop</p>
-            <p className="text-xs text-white/50">IIT KGP Campus Super App</p>
-          </div>
-        </Link>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-white/80 hover:bg-white/[0.1]"
-          >
-            Login
-          </Link>
-          <Link
-            href="/student-dashboard"
-            className="hidden rounded-2xl bg-white px-4 py-2.5 text-sm font-black text-slate-950 hover:bg-white/90 sm:inline-flex"
-          >
-            Dashboard
-          </Link>
-        </div>
-      </header>
-
-      <section className="relative z-10 mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-20">
-        <div>
-          <div className="mb-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/80 backdrop-blur">
-            Built for IIT Kharagpur students
-          </div>
-
-          <h1 className="max-w-4xl text-5xl font-black tracking-tight sm:text-6xl lg:text-7xl">
-            Everything IIT KGP needs,
-            <span className="block bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
-              in one app.
-            </span>
-          </h1>
-
-          <p className="mt-6 max-w-2xl text-base leading-7 text-white/65 sm:text-lg">
-            Food, essentials, Lost & Found, Buy & Sell, order history, profile
-            management, and campus-first services — all inside EdStop.
-          </p>
-
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/login"
-              className="rounded-2xl bg-white px-6 py-3.5 text-center text-sm font-black text-slate-950 shadow-xl shadow-purple-500/20 hover:bg-white/90"
-            >
-              Get Started
-            </Link>
-            <Link
-              href="#services"
-              className="rounded-2xl border border-white/10 bg-white/[0.06] px-6 py-3.5 text-center text-sm font-bold text-white/80 hover:bg-white/[0.1]"
-            >
-              Explore Services
-            </Link>
-          </div>
-
-          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {['Food', 'Essentials', 'Lost & Found', 'Marketplace'].map((item) => (
-              <div
-                key={item}
-                className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-bold text-white/75"
-              >
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.08] p-5 shadow-2xl backdrop-blur-xl">
-          <div className="rounded-3xl bg-slate-950/60 p-5">
-            <p className="text-sm font-bold text-purple-200">Live on EdStop</p>
-            <div className="mt-5 space-y-3">
-              {liveServices.map((service) => (
-                <Link
-                  key={service.title}
-                  href={service.href}
-                  className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 transition hover:bg-white/[0.1]"
-                >
-                  <div className="text-3xl">{service.icon}</div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-black">{service.title}</h3>
-                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-200">
-                        {service.badge}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs leading-5 text-white/55">
-                      {service.description}
-                    </p>
-                  </div>
-                </Link>
-              ))}
+      <div className="relative z-10 mx-auto grid min-h-screen max-w-6xl grid-cols-1 gap-8 px-4 py-6 lg:grid-cols-[1fr_440px] lg:items-center lg:py-10">
+        <section className="hidden lg:block">
+          <Link href="/" className="inline-flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 text-xl font-black shadow-lg shadow-purple-500/25">
+              E
             </div>
-          </div>
-        </div>
-      </section>
+            <div>
+              <p className="text-xl font-black leading-none">EdStop</p>
+              <p className="text-xs text-white/50">Campus Super App</p>
+            </div>
+          </Link>
 
-      <section id="services" className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <p className="text-sm font-bold text-purple-300">Live services</p>
-          <h2 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-            Campus utilities that are already working.
-          </h2>
-        </div>
+          <div className="mt-16 max-w-xl">
+            <div className="mb-5 inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/80 backdrop-blur">
+              Built for faster campus life
+            </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {liveServices.map((service) => (
-            <Link
-              key={service.title}
-              href={service.href}
-              className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-xl transition hover:-translate-y-1 hover:bg-white/[0.1]"
-            >
-              <div className="text-4xl">{service.icon}</div>
-              <div className="mt-4 flex items-center gap-2">
-                <h3 className="text-lg font-black">{service.title}</h3>
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-black text-white/70">
-                  {service.badge}
-                </span>
-              </div>
-              <p className="mt-3 text-sm leading-6 text-white/60">
-                {service.description}
-              </p>
-            </Link>
-          ))}
-        </div>
-      </section>
+            <h1 className="text-5xl font-black tracking-tight">
+              One account for food, essentials, orders, and student services.
+            </h1>
 
-      <section className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6">
-            <p className="text-sm font-bold text-purple-300">How it works</p>
-            <h2 className="mt-2 text-3xl font-black">Start in minutes.</h2>
-            <div className="mt-6 space-y-3">
-              {steps.map((step, index) => (
+            <p className="mt-6 text-base leading-7 text-white/65">
+              Sign in to manage your EdStop profile, place COD orders, access
+              dark store essentials, track order history, post Lost & Found
+              items, and use the campus Buy & Sell marketplace.
+            </p>
+
+            <div className="mt-8 grid grid-cols-2 gap-3">
+              {features.map((feature) => (
                 <div
-                  key={step}
-                  className="flex items-center gap-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4"
+                  key={feature}
+                  className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-sm font-bold text-white/75"
                 >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-sm font-black text-slate-950">
-                    {index + 1}
-                  </div>
-                  <p className="text-sm font-semibold text-white/75">{step}</p>
+                  {feature}
                 </div>
               ))}
             </div>
           </div>
+        </section>
 
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 p-6">
-            <p className="text-sm font-bold text-purple-200">Install EdStop</p>
-            <h2 className="mt-2 text-3xl font-black">Use it like a mobile app.</h2>
-            <p className="mt-4 text-sm leading-6 text-white/65">
-              Add EdStop to your home screen for faster access to food,
-              essentials, Lost & Found, marketplace, and student services.
-            </p>
-            <Link
-              href="/login"
-              className="mt-6 inline-flex rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 hover:bg-white/90"
-            >
-              Open EdStop
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-6">
-          <p className="text-sm font-bold text-purple-300">Coming next</p>
-          <h2 className="mt-2 text-3xl font-black">More campus features are on the way.</h2>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {upcoming.map((item) => (
-              <div
-                key={item}
-                className="rounded-2xl border border-white/10 bg-slate-950/40 p-4 text-sm font-bold text-white/70"
-              >
-                {item}
+        <section className="rounded-[2rem] border border-white/10 bg-white/[0.08] p-5 shadow-2xl backdrop-blur-xl sm:p-7">
+          <div className="mb-6 flex items-center justify-between">
+            <Link href="/" className="flex items-center gap-3 lg:hidden">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 text-xl font-black">
+                E
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+              <div>
+                <p className="text-lg font-black leading-none">EdStop</p>
+                <p className="text-xs text-white/50">Campus Super App</p>
+              </div>
+            </Link>
 
-      <section className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <p className="text-sm font-bold text-purple-300">FAQ</p>
-          <h2 className="mt-2 text-3xl font-black">Questions students may ask.</h2>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          {faqs.map((faq) => (
-            <div
-              key={faq.q}
-              className="rounded-3xl border border-white/10 bg-white/[0.06] p-5"
+            <Link
+              href="/"
+              className="ml-auto text-sm font-semibold text-white/55 hover:text-white"
             >
-              <h3 className="font-black">{faq.q}</h3>
-              <p className="mt-3 text-sm leading-6 text-white/60">{faq.a}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+              Home
+            </Link>
+          </div>
 
-      <footer className="relative z-10 border-t border-white/10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div>
-            <p className="font-black">EdStop</p>
-            <p className="mt-1 text-sm text-white/45">
-              Built for IIT Kharagpur campus life.
+            <h2 className="text-3xl font-black">
+              {isSignUp ? 'Create your account' : 'Welcome back'}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-white/55">
+              {isSignUp
+                ? 'Join EdStop and start using campus services.'
+                : 'Sign in to continue to your student dashboard.'}
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-4 text-sm text-white/55">
-            <Link href="/terms" className="hover:text-white">
-              Terms
-            </Link>
-            <Link href="/privacy" className="hover:text-white">
-              Privacy
-            </Link>
-            <Link href="/login" className="hover:text-white">
-              Login
-            </Link>
-            <Link href="/student-dashboard" className="hover:text-white">
-              Dashboard
-            </Link>
+          <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-slate-950/40 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('email');
+                setError('');
+                setSuccess('');
+              }}
+              className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${
+                authMode === 'email'
+                  ? 'bg-white text-slate-950'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Email
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('phone');
+                setError('');
+                setSuccess('');
+              }}
+              className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${
+                authMode === 'phone'
+                  ? 'bg-white text-slate-950'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Phone OTP
+            </button>
           </div>
-        </div>
-      </footer>
+
+          {error && (
+            <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="mt-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+              {success}
+            </div>
+          )}
+
+          {authMode === 'email' ? (
+            <form onSubmit={handleEmailSubmit} className="mt-6 space-y-4">
+              {isSignUp && (
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder="Full name"
+                  className={inputClassName}
+                  disabled={loading}
+                />
+              )}
+
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Email address"
+                className={inputClassName}
+                disabled={loading}
+              />
+
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Password"
+                className={inputClassName}
+                disabled={loading}
+              />
+
+              {isSignUp && (
+                <label className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-white/65">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(event) => setAcceptedTerms(event.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-white/20 bg-white/10"
+                    disabled={loading}
+                  />
+                  <span>
+                    I agree to EdStop{' '}
+                    <Link href="/terms" className="font-bold text-purple-300">
+                      Terms
+                    </Link>{' '}
+                    and{' '}
+                    <Link href="/privacy" className="font-bold text-purple-300">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </span>
+                </label>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || authLoading}
+                className="w-full rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? 'Please wait...' : isSignUp ? 'Create account' : 'Sign in'}
+              </button>
+
+              {!isSignUp && (
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword((value) => !value)}
+                    className="font-semibold text-white/55 hover:text-white"
+                  >
+                    Forgot password?
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={loading}
+                    className="font-semibold text-purple-300 hover:text-purple-200 disabled:opacity-60"
+                  >
+                    Resend verification
+                  </button>
+                </div>
+              )}
+
+              {showForgotPassword && (
+                <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <input
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(event) => setForgotEmail(event.target.value)}
+                    placeholder="Reset email"
+                    className={smallInputClassName}
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={loading}
+                    className="w-full rounded-xl bg-purple-500 px-4 py-2.5 text-sm font-black text-white transition hover:bg-purple-400 disabled:opacity-60"
+                  >
+                    Send reset link
+                  </button>
+                </div>
+              )}
+            </form>
+          ) : (
+            <form onSubmit={handlePhoneOtpSubmit} className="mt-6 space-y-4">
+              <input
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="Phone number with country code"
+                className={inputClassName}
+                disabled={loading}
+              />
+
+              {otpSent && (
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(event) => setOtp(event.target.value)}
+                  placeholder="Enter OTP"
+                  className={inputClassName}
+                  disabled={loading}
+                />
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || authLoading}
+                className="w-full rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? 'Please wait...' : otpSent ? 'Verify OTP' : 'Send OTP'}
+              </button>
+
+              <p className="text-xs leading-5 text-white/45">
+                Phone OTP depends on Supabase SMS provider configuration. Use
+                email login if OTP is not enabled yet.
+              </p>
+            </form>
+          )}
+
+          {authMode === 'email' && (
+            <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-white/55">
+              {isSignUp ? 'Already have an account?' : 'New to EdStop?'}{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp((value) => !value);
+                  setError('');
+                  setSuccess('');
+                  setShowForgotPassword(false);
+                }}
+                className="font-black text-purple-300 hover:text-purple-200"
+              >
+                {isSignUp ? 'Sign in' : 'Create account'}
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
