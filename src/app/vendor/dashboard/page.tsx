@@ -12,7 +12,7 @@ const VENDOR_ORDER_STATUSES = ['confirmed', 'preparing', 'ready'];
 async function setOutletOpen(formData: FormData) {
   'use server';
 
-  const { user } = await requireRole('vendor');
+  const { user, role } = await requireRole('vendor');
   const supabase = await createClient();
 
   const restaurantId = String(formData.get('restaurant_id') || '');
@@ -20,14 +20,19 @@ async function setOutletOpen(formData: FormData) {
 
   if (!restaurantId) return;
 
-  const { error } = await supabase
+  let query = supabase
     .from('restaurants')
     .update({
       is_open: isOpen,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', restaurantId)
-    .eq('owner_id', user.id);
+    .eq('id', restaurantId);
+
+  if (role !== 'admin') {
+    query = query.eq('owner_id', user.id);
+  }
+
+  const { error } = await query;
 
   if (error) {
     console.error('Vendor outlet update failed:', error);
@@ -40,21 +45,39 @@ async function setOutletOpen(formData: FormData) {
 async function setMenuItemAvailable(formData: FormData) {
   'use server';
 
-  await requireRole('vendor');
+  const { user, role } = await requireRole('vendor');
   const supabase = await createClient();
 
   const itemId = String(formData.get('item_id') || '');
+  const restaurantId = String(formData.get('restaurant_id') || '');
   const isAvailable = String(formData.get('is_available')) === 'true';
 
-  if (!itemId) return;
+  if (!itemId || !restaurantId) return;
 
-  const { error } = await supabase
+  let query = supabase
     .from('menu_items')
     .update({
       is_available: isAvailable,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', itemId);
+    .eq('id', itemId)
+    .eq('restaurant_id', restaurantId);
+
+  if (role !== 'admin') {
+    const { data: ownedRestaurant } = await supabase
+      .from('restaurants')
+      .select('id')
+      .eq('id', restaurantId)
+      .eq('owner_id', user.id)
+      .maybeSingle();
+
+    if (!ownedRestaurant) {
+      console.error('Vendor menu item update blocked: restaurant not owned');
+      return;
+    }
+  }
+
+  const { error } = await query;
 
   if (error) {
     console.error('Vendor menu item update failed:', error);
@@ -89,14 +112,28 @@ async function setVendorOrderStatus(formData: FormData) {
 }
 
 export default async function VendorDashboardPage() {
-  const { user } = await requireRole('vendor');
+  const { user, role } = await requireRole('vendor');
   const supabase = await createClient();
 
-  const { data: restaurant } = await supabase
+  let restaurantQuery = supabase
     .from('restaurants')
-    .select('id, name, is_open, is_active, is_available, rating, delivery_time, minimum_order')
-    .eq('owner_id', user.id)
-    .maybeSingle();
+    .select(
+      'id, name, is_open, is_active, is_available, rating, delivery_time, minimum_order, created_at'
+    )
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (role !== 'admin') {
+    restaurantQuery = restaurantQuery.eq('owner_id', user.id);
+  }
+
+  const { data: restaurantRows, error: restaurantError } = await restaurantQuery;
+
+  if (restaurantError) {
+    console.error('Vendor restaurant fetch failed:', restaurantError);
+  }
+
+  const restaurant = restaurantRows?.[0] ?? null;
 
   if (!restaurant) {
     return (
@@ -104,13 +141,13 @@ export default async function VendorDashboardPage() {
         <div className="mx-auto max-w-3xl rounded-3xl border border-white/10 bg-white/[0.04] p-8">
           <h1 className="text-2xl font-bold">No restaurant assigned</h1>
           <p className="mt-2 text-white/60">
-            Your vendor account is active, but no restaurant is linked to your user ID yet.
+            No restaurant is linked to this account yet.
           </p>
           <Link
-            href="/login"
+            href="/admin/operations"
             className="mt-6 inline-flex rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
           >
-            Back
+            Back to Operations
           </Link>
         </div>
       </main>
@@ -129,7 +166,7 @@ export default async function VendorDashboardPage() {
 
     supabase
       .from('menu_items')
-      .select('id, name, price, category, is_available, stock_level')
+      .select('id, restaurant_id, name, price, category, is_available, stock_level')
       .eq('restaurant_id', restaurant.id)
       .order('name', { ascending: true })
       .limit(50),
@@ -158,24 +195,37 @@ export default async function VendorDashboardPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-white/50">Vendor Dashboard</p>
+            <p className="text-sm text-white/50">
+              {role === 'admin' ? 'Admin Preview · Vendor Dashboard' : 'Vendor Dashboard'}
+            </p>
             <h1 className="text-3xl font-bold">{restaurant.name}</h1>
             <p className="mt-2 text-sm text-white/60">
               Manage outlet status, orders, and menu availability.
             </p>
           </div>
 
-          <form action={setOutletOpen}>
-            <input type="hidden" name="restaurant_id" value={restaurant.id} />
-            <input
-              type="hidden"
-              name="is_open"
-              value={restaurant.is_open ? 'false' : 'true'}
-            />
-            <button className="rounded-xl border border-white/10 px-5 py-2 text-sm hover:bg-white/10">
-              {restaurant.is_open ? 'Close Outlet' : 'Open Outlet'}
-            </button>
-          </form>
+          <div className="flex gap-3">
+            {role === 'admin' && (
+              <Link
+                href="/admin/operations"
+                className="rounded-xl border border-white/10 px-5 py-2 text-sm hover:bg-white/10"
+              >
+                Admin Operations
+              </Link>
+            )}
+
+            <form action={setOutletOpen}>
+              <input type="hidden" name="restaurant_id" value={restaurant.id} />
+              <input
+                type="hidden"
+                name="is_open"
+                value={restaurant.is_open ? 'false' : 'true'}
+              />
+              <button className="rounded-xl border border-white/10 px-5 py-2 text-sm hover:bg-white/10">
+                {restaurant.is_open ? 'Close Outlet' : 'Open Outlet'}
+              </button>
+            </form>
+          </div>
         </header>
 
         <section className="grid gap-4 md:grid-cols-4">
@@ -248,6 +298,7 @@ export default async function VendorDashboardPage() {
 
                   <form action={setMenuItemAvailable}>
                     <input type="hidden" name="item_id" value={item.id} />
+                    <input type="hidden" name="restaurant_id" value={restaurant.id} />
                     <input
                       type="hidden"
                       name="is_available"
