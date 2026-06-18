@@ -4,12 +4,11 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabaseClient';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,6 +25,8 @@ export default function ResetPasswordPage() {
 
       try {
         const supabase = createClient();
+
+        const searchParams = new URLSearchParams(window.location.search);
         const code = searchParams.get('code');
 
         if (code) {
@@ -35,15 +36,16 @@ export default function ResetPasswordPage() {
           if (exchangeError) {
             throw exchangeError;
           }
+
+          window.history.replaceState({}, document.title, '/reset-password');
         }
 
-        const hashParams =
-          typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.hash.replace('#', ''))
-            : null;
+        const hashParams = new URLSearchParams(
+          window.location.hash.replace('#', '')
+        );
 
-        const accessToken = hashParams?.get('access_token');
-        const refreshToken = hashParams?.get('refresh_token');
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
 
         if (accessToken && refreshToken) {
           const { error: sessionError } = await supabase.auth.setSession({
@@ -84,7 +86,7 @@ export default function ResetPasswordPage() {
     };
 
     void prepareResetSession();
-  }, [searchParams]);
+  }, []);
 
   const handleReset = async (event: React.FormEvent) => {
     event.preventDefault();
