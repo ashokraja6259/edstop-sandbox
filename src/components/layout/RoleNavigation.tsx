@@ -3,7 +3,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -176,8 +176,10 @@ function normalizeRole(role: string | null): NavRole {
 
 export default function RoleNavigation() {
   const pathname = usePathname();
-  const { user, userRole, loading, profileLoading } = useAuth();
+  const router = useRouter();
+  const { user, userRole, loading, profileLoading, signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const role = normalizeRole(userRole);
 
@@ -195,6 +197,21 @@ export default function RoleNavigation() {
     () => NAV_ITEMS.filter((item) => item.roles.includes(role)),
     [role]
   );
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+
+    try {
+      setLoggingOut(true);
+      await signOut();
+      setOpen(false);
+      router.push('/login');
+      router.refresh();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setLoggingOut(false);
+    }
+  };
 
   if (shouldHide || items.length === 0) {
     return null;
@@ -256,6 +273,18 @@ export default function RoleNavigation() {
                 </Link>
               );
             })}
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="mt-2 flex items-center gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="text-lg">🚪</span>
+              <span className="font-medium">
+                {loggingOut ? 'Logging out...' : 'Logout'}
+              </span>
+            </button>
           </div>
         </nav>
       </aside>
