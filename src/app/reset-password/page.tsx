@@ -19,55 +19,26 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    const prepareResetSession = async () => {
+    const checkResetSession = async () => {
       setCheckingSession(true);
       setError('');
 
       try {
         const supabase = createClient();
 
-        const searchParams = new URLSearchParams(window.location.search);
-        const code = searchParams.get('code');
-
-        if (code) {
-          const { error: exchangeError } =
-            await supabase.auth.exchangeCodeForSession(code);
-
-          if (exchangeError) {
-            throw exchangeError;
-          }
-
-          window.history.replaceState({}, document.title, '/reset-password');
-        }
-
-        const hashParams = new URLSearchParams(
-          window.location.hash.replace('#', '')
-        );
-
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-
-        if (accessToken && refreshToken) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          if (sessionError) {
-            throw sessionError;
-          }
-
-          window.history.replaceState({}, document.title, '/reset-password');
-        }
-
         const {
           data: { session },
+          error: sessionError,
         } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw sessionError;
+        }
 
         if (!session) {
           setCanReset(false);
           setError(
-            'Reset link is invalid or expired. Please request a new password reset link.'
+            'Reset session is missing or expired. Please request a new password reset link from the login page.'
           );
           return;
         }
@@ -78,14 +49,14 @@ export default function ResetPasswordPage() {
         setError(
           err instanceof Error
             ? err.message
-            : 'Could not verify your reset link. Please request a new one.'
+            : 'Could not verify your reset session. Please request a new password reset link.'
         );
       } finally {
         setCheckingSession(false);
       }
     };
 
-    void prepareResetSession();
+    void checkResetSession();
   }, []);
 
   const handleReset = async (event: React.FormEvent) => {
@@ -163,7 +134,7 @@ export default function ResetPasswordPage() {
 
           {checkingSession && (
             <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-white/70">
-              Verifying reset link...
+              Verifying reset session...
             </div>
           )}
 
