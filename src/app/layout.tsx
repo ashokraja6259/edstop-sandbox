@@ -5,6 +5,7 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import InstallAppBanner from '@/components/pwa/InstallAppBanner';
+import RoleNavigation from '@/components/layout/RoleNavigation';
 
 export const metadata: Metadata = {
   title: 'EdStop',
@@ -48,6 +49,7 @@ export default function RootLayout({
         <AuthProvider>
           <ToastProvider>
             {children}
+            <RoleNavigation />
             <InstallAppBanner />
           </ToastProvider>
         </AuthProvider>
