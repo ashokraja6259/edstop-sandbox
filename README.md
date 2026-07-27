@@ -48,6 +48,8 @@ Required variables:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `RAZORPAY_KEY_ID`
 - `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
+- `RAZORPAY_MODE` (`test` or `live`; Test Mode is required for the pilot)
 - `NEXT_PUBLIC_RAZORPAY_KEY_ID`
 
 Optional:
@@ -108,6 +110,13 @@ npm run start
 - Ensure all required environment variables are configured in the deployment platform.
 - `NEXT_PUBLIC_*` values must be available at build/runtime for client usage.
 - Keep Supabase service role key server-side only.
+- Keep `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` server-side only.
+- `NEXT_PUBLIC_RAZORPAY_KEY_ID` must equal `RAZORPAY_KEY_ID`; the application
+  rejects test/live prefix mismatches instead of silently mixing credentials.
+- Configure the Razorpay webhook to send the unmodified request body to
+  `/api/razorpay/webhook`. Use a webhook secret distinct from the API secret.
+- Run `node scripts/reconcile-razorpay.mjs` for a dry run. The explicit
+  `--apply` flag is restricted to trusted backend operations.
 - Run migrations in `supabase/migrations` before production rollout.
 - Use `npm run lint`, `npm run typecheck`, and `npm run build` as required pre-deploy gates.
 

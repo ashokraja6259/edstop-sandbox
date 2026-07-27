@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:payments": "node --test tests/razorpay-hardening.test.mjs",
+    "reconcile:razorpay": "node scripts/reconcile-razorpay.mjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
