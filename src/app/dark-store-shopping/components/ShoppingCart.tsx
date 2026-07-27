@@ -20,26 +20,35 @@ interface ShoppingCartProps {
   walletBalance: number;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
-  onCheckout: (promoCode?: string, promoDiscount?: number) => void;
+  onCheckout: (
+    paymentMethod: 'cod' | 'razorpay_test',
+    walletAmountPaise: number
+  ) => void;
   isOpen: boolean;
   onClose: () => void;
   isCheckingOut?: boolean;
+  testCheckoutEnabled?: boolean;
 }
 
 const MAX_QUANTITY = 10;
 
 const ShoppingCart = ({
   items,
+  walletBalance,
   onUpdateQuantity,
   onRemoveItem,
   onCheckout,
   isOpen,
   onClose,
   isCheckingOut = false,
+  testCheckoutEnabled = false,
 }: ShoppingCartProps) => {
   const isHydrated = useIsClient();
   const [quantityErrors, setQuantityErrors] = useState<Record<string, string>>({});
   const [checkoutError, setCheckoutError] = useState('');
+  const [paymentMethod, setPaymentMethod] =
+    useState<'cod' | 'razorpay_test'>('cod');
+  const [useWallet, setUseWallet] = useState(false);
 
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -128,7 +137,14 @@ const ShoppingCart = ({
     }
 
     setCheckoutError('');
-    onCheckout();
+    const walletAmountPaise =
+      paymentMethod === 'razorpay_test' && useWallet
+        ? Math.min(
+            Math.floor(walletBalance * 100),
+            Math.max(0, Math.round(total * 100) - 1)
+          )
+        : 0;
+    onCheckout(paymentMethod, walletAmountPaise);
   };
 
   if (!isHydrated) return null;
@@ -224,12 +240,52 @@ const ShoppingCart = ({
                 <div className="text-red-500 text-sm">{checkoutError}</div>
               )}
 
+              {testCheckoutEnabled && (
+                <div className="space-y-2 rounded border border-purple-400/30 p-3">
+                  <div className="text-xs font-semibold text-purple-300">
+                    Approved Test Mode checkout
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="dark-store-payment"
+                      checked={paymentMethod === 'cod'}
+                      onChange={() => setPaymentMethod('cod')}
+                    />
+                    Cash on delivery
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="dark-store-payment"
+                      checked={paymentMethod === 'razorpay_test'}
+                      onChange={() => setPaymentMethod('razorpay_test')}
+                    />
+                    Razorpay Test Mode
+                  </label>
+                  {paymentMethod === 'razorpay_test' && walletBalance > 0 && (
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={useWallet}
+                        onChange={(event) => setUseWallet(event.target.checked)}
+                      />
+                      Use up to ₹{walletBalance.toFixed(2)} wallet balance
+                    </label>
+                  )}
+                </div>
+              )}
+
               <button
                 onClick={handleCheckout}
                 disabled={isCheckingOut}
                 className="w-full bg-purple-600 text-white py-3 rounded"
               >
-                {isCheckingOut ? 'Processing...' : 'Proceed to Checkout'}
+                {isCheckingOut
+                  ? 'Processing...'
+                  : paymentMethod === 'razorpay_test'
+                    ? 'Pay in Razorpay Test Mode'
+                    : 'Proceed to Checkout'}
               </button>
             </div>
           )}

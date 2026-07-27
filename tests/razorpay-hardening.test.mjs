@@ -15,6 +15,7 @@ const createRoute = read('src/app/api/dark-store/payment/create-order/route.ts')
 const verifyRoute = read('src/app/api/dark-store/payment/verify/route.ts');
 const webhookRoute = read('src/app/api/razorpay/webhook/route.ts');
 const refundRoute = read('src/app/api/razorpay/refunds/route.ts');
+const refundOperation = read('src/lib/payments/refund-operation.mjs');
 const migration = read('supabase/migrations/20260727000300_harden_razorpay_lifecycle.sql');
 const reconcile = read('scripts/reconcile-razorpay.mjs');
 const foodRoute = read('src/app/api/orders/create/route.ts');
@@ -140,7 +141,7 @@ test('38 over-refund is rejected', () => {
 });
 test('39 duplicate refund request is harmless', () => {
   assert.match(migration, /UNIQUE \(payment_intent_id, idempotency_key\)/);
-  assert.match(refundRoute, /idempotentReplay: true/);
+  assert.match(refundOperation, /idempotentReplay: true/);
 });
 test('40 refund webhook is idempotent', () => {
   assert.match(webhookRoute, /provider_refund_id/);

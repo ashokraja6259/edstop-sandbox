@@ -8,6 +8,7 @@ import {
   readJsonBody,
   validateRazorpayEnvironment,
 } from '@/lib/payments/razorpay';
+import { executeRefundOperation } from '@/lib/payments/refund-operation.mjs';
 
 interface RefundRequestBody {
   paymentIntentId: string;
@@ -17,7 +18,6 @@ interface RefundRequestBody {
 
 export async function POST(request: Request) {
   try {
-    const environment = validateRazorpayEnvironment();
     const supabase = await createClient();
     const {
       data: { user },
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     if (profile?.role !== 'admin') {
       return NextResponse.json({ error: 'Admin authorization required' }, { status: 403 });
     }
+    const environment = validateRazorpayEnvironment();
 
     const body = await readJsonBody<RefundRequestBody>(request);
     if (
@@ -58,7 +59,6 @@ export async function POST(request: Request) {
       || !intent
       || !intent.provider_payment_id
       || !intent.internal_order_id
-      || !['order_created', 'partially_refunded', 'refund_failed'].includes(intent.status)
     ) {
       return NextResponse.json({ error: 'Payment is not refundable' }, { status: 409 });
     }
@@ -72,142 +72,113 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid refund amount' }, { status: 400 });
     }
 
-    const { data: reservationData, error: reservationError } =
-      await adminSupabase.rpc('reserve_razorpay_refund', {
-        p_payment_intent_id: intent.id,
-        p_requested_by: user.id,
-        p_idempotency_key: body.idempotencyKey,
-        p_amount_paise: requestedPaise,
-      });
+    const operation = await executeRefundOperation(
+      {
+        paymentIntentId: intent.id,
+        requestedBy: user.id,
+        idempotencyKey: body.idempotencyKey,
+        amountPaise: requestedPaise,
+      },
+      {
+        reserve: async () => {
+          const { data, error } = await adminSupabase.rpc(
+            'reserve_razorpay_refund',
+            {
+              p_payment_intent_id: intent.id,
+              p_requested_by: user.id,
+              p_idempotency_key: body.idempotencyKey,
+              p_amount_paise: requestedPaise,
+            }
+          );
+          if (error || !data) throw new Error('Refund reservation rejected');
+          return data;
+        },
+        createProviderRefund: async (reservation) => {
+          const response = await razorpayFetch(
+            `/payments/${encodeURIComponent(intent.provider_payment_id)}/refund`,
+            environment,
+            {
+              method: 'POST',
+              body: JSON.stringify({
+                amount: Number(reservation.amount_paise),
+                speed: 'normal',
+                receipt: `rf_${reservation.refund_id.replaceAll('-', '').slice(0, 24)}`,
+                notes: {
+                  payment_intent_id: intent.id,
+                  refund_id: reservation.refund_id,
+                },
+              }),
+            }
+          );
+          return { ok: response.ok, ...(await response.json()) };
+        },
+        markUnknown: async (reservation) => {
+          await adminSupabase
+            .from('payment_refunds')
+            .update({
+              status: 'manual_review',
+              failure_code: 'PROVIDER_TIMEOUT',
+              failure_reason: 'Refund result is unknown',
+            })
+            .eq('id', reservation.refund_id);
+          await adminSupabase
+            .from('payment_intents')
+            .update({ status: 'manual_review' })
+            .eq('id', intent.id)
+            .eq('status', 'refund_pending');
+        },
+        markFailed: async (reservation) => {
+          await adminSupabase
+            .from('payment_refunds')
+            .update({
+              status: 'failed',
+              failure_code: 'PROVIDER_REFUND_FAILED',
+              failure_reason: 'Provider rejected refund',
+            })
+            .eq('id', reservation.refund_id);
+          await adminSupabase
+            .from('payment_intents')
+            .update({ status: 'refund_failed' })
+            .eq('id', intent.id)
+            .eq('status', 'refund_pending');
+        },
+        saveProviderResult: async (reservation, providerRefund, status) => {
+          await adminSupabase
+            .from('payment_refunds')
+            .update({
+              provider_refund_id: providerRefund.id,
+              status,
+              completed_at: status === 'processed'
+                ? new Date().toISOString()
+                : null,
+            })
+            .eq('id', reservation.refund_id);
+        },
+        finalizeIntent: async () => {
+          const { data: processedRefunds } = await adminSupabase
+            .from('payment_refunds')
+            .select('amount_paise')
+            .eq('payment_intent_id', intent.id)
+            .eq('status', 'processed');
+          const finalRefundedPaise = (processedRefunds ?? []).reduce(
+            (sum, row) => sum + Number(row.amount_paise),
+            0
+          );
+          await adminSupabase
+            .from('payment_intents')
+            .update({
+              status:
+                finalRefundedPaise >= Number(intent.razorpay_amount_paise)
+                  ? 'refunded'
+                  : 'partially_refunded',
+            })
+            .eq('id', intent.id)
+            .eq('status', 'refund_pending');
+        },
+      }
+    );
 
-    if (reservationError || !reservationData) {
-      return NextResponse.json(
-        { error: 'Refund exceeds refundable amount' },
-        { status: 409 }
-      );
-    }
-
-    const reservation = reservationData as {
-      refund_id: string;
-      amount_paise: number;
-      status: string;
-      idempotent_replay: boolean;
-    };
-    if (reservation.idempotent_replay) {
-      return NextResponse.json({
-        success: true,
-        refundId: reservation.refund_id,
-        amountPaise: reservation.amount_paise,
-        status: reservation.status,
-        idempotentReplay: true,
-      });
-    }
-
-    const refundId = reservation.refund_id;
-    const refundAmountPaise = Number(reservation.amount_paise);
-
-    let response: Response;
-    try {
-      response = await razorpayFetch(
-        `/payments/${encodeURIComponent(intent.provider_payment_id)}/refund`,
-        environment,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            amount: refundAmountPaise,
-            speed: 'normal',
-            receipt: `rf_${refundId.replaceAll('-', '').slice(0, 24)}`,
-            notes: {
-              payment_intent_id: intent.id,
-              refund_id: refundId,
-            },
-          }),
-        }
-      );
-    } catch {
-      await adminSupabase
-        .from('payment_refunds')
-        .update({
-          status: 'manual_review',
-          failure_code: 'PROVIDER_TIMEOUT',
-          failure_reason: 'Refund result is unknown',
-        })
-        .eq('id', refundId);
-      await adminSupabase
-        .from('payment_intents')
-        .update({ status: 'manual_review' })
-        .eq('id', intent.id)
-        .eq('status', 'refund_pending');
-      return NextResponse.json(
-        { error: 'Refund result requires reconciliation' },
-        { status: 503 }
-      );
-    }
-
-    const providerRefund = await response.json();
-    if (
-      !response.ok
-      || !isValidIdentifier(providerRefund?.id)
-      || Number(providerRefund.amount) !== refundAmountPaise
-      || providerRefund.currency !== 'INR'
-    ) {
-      await adminSupabase
-        .from('payment_refunds')
-        .update({
-          status: 'failed',
-          failure_code: 'PROVIDER_REFUND_FAILED',
-          failure_reason: 'Provider rejected refund',
-        })
-        .eq('id', refundId);
-      await adminSupabase
-        .from('payment_intents')
-        .update({ status: 'refund_failed' })
-        .eq('id', intent.id)
-        .eq('status', 'refund_pending');
-      return NextResponse.json({ error: 'Refund request failed' }, { status: 502 });
-    }
-
-    const providerStatus =
-      providerRefund.status === 'processed' ? 'processed' : 'refund_pending';
-    await adminSupabase
-      .from('payment_refunds')
-      .update({
-        provider_refund_id: providerRefund.id,
-        status: providerStatus,
-        completed_at:
-          providerStatus === 'processed' ? new Date().toISOString() : null,
-      })
-      .eq('id', refundId);
-
-    if (providerStatus === 'processed') {
-      const { data: processedRefunds } = await adminSupabase
-        .from('payment_refunds')
-        .select('amount_paise')
-        .eq('payment_intent_id', intent.id)
-        .eq('status', 'processed');
-      const finalRefundedPaise = (processedRefunds ?? []).reduce(
-        (sum, row) => sum + Number(row.amount_paise),
-        0
-      );
-      await adminSupabase
-        .from('payment_intents')
-        .update({
-          status:
-            finalRefundedPaise >= Number(intent.razorpay_amount_paise)
-              ? 'refunded'
-              : 'partially_refunded',
-        })
-        .eq('id', intent.id)
-        .eq('status', 'refund_pending');
-    }
-
-    return NextResponse.json({
-      success: true,
-      refundId,
-      amountPaise: refundAmountPaise,
-      status: providerStatus,
-      idempotentReplay: false,
-    });
+    return NextResponse.json(operation.body, { status: operation.httpStatus });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '';
     const status = ['Invalid request body', 'Request body is too large'].includes(message)

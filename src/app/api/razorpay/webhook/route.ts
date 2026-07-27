@@ -73,6 +73,11 @@ export async function POST(request: Request) {
   const providerOrderId =
     textField(payment, 'order_id') || textField(order, 'id');
   const providerRefundId = textField(refund, 'id');
+  const refundNotes =
+    refund?.notes && typeof refund.notes === 'object'
+      ? refund.notes as Record<string, unknown>
+      : undefined;
+  const localRefundId = textField(refundNotes, 'refund_id');
   const eventFingerprint = fingerprintWebhook(rawBody);
   const eventId =
     isValidIdentifier(body.id, 128) ? body.id : null;
@@ -234,16 +239,20 @@ export async function POST(request: Request) {
           : eventType === 'refund.failed'
             ? 'failed'
             : 'refund_pending';
-      const { data: refundRow } = await adminSupabase
+      let refundQuery = adminSupabase
         .from('payment_refunds')
         .update({
+          provider_refund_id: providerRefundId,
           status: refundStatus,
           completed_at:
             refundStatus === 'processed' ? new Date().toISOString() : null,
           failure_reason:
             refundStatus === 'failed' ? 'Provider reported refund failure' : null,
-        })
-        .eq('provider_refund_id', providerRefundId)
+        });
+      refundQuery = localRefundId
+        ? refundQuery.eq('id', localRefundId)
+        : refundQuery.eq('provider_refund_id', providerRefundId);
+      const { data: refundRow } = await refundQuery
         .select('id, payment_intent_id')
         .maybeSingle();
 

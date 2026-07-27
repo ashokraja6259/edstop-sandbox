@@ -13,6 +13,7 @@ import {
   rupeesToPaise,
   validateRazorpayEnvironment,
 } from '@/lib/payments/razorpay';
+import { isApprovedRazorpayTestUser } from '@/lib/payments/test-checkout';
 
 interface CreateDarkStorePaymentBody {
   items: DarkStoreCartInputItem[];
@@ -53,7 +54,6 @@ function intentResponse(
 
 export async function POST(request: Request) {
   try {
-    const environment = validateRazorpayEnvironment();
     const supabase = await createClient();
     const {
       data: { user },
@@ -63,6 +63,19 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
     }
+
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (!isApprovedRazorpayTestUser(user.id, profile?.role)) {
+      return NextResponse.json(
+        { error: 'Razorpay Test Mode checkout is disabled' },
+        { status: 403 }
+      );
+    }
+    const environment = validateRazorpayEnvironment();
 
     const body = await readJsonBody<CreateDarkStorePaymentBody>(request);
     if (!isValidIdempotencyKey(body.idempotencyKey)) {

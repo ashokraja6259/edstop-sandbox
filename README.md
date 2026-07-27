@@ -51,6 +51,8 @@ Required variables:
 - `RAZORPAY_WEBHOOK_SECRET`
 - `RAZORPAY_MODE` (`test` or `live`; Test Mode is required for the pilot)
 - `NEXT_PUBLIC_RAZORPAY_KEY_ID`
+- `RAZORPAY_TEST_CHECKOUT_ENABLED` (`true` only for an approved Test Mode pilot)
+- `RAZORPAY_TEST_USER_IDS` (comma-separated authenticated user UUIDs; server-only)
 
 Optional:
 
@@ -115,6 +117,10 @@ npm run start
   rejects test/live prefix mismatches instead of silently mixing credentials.
 - Configure the Razorpay webhook to send the unmodified request body to
   `/api/razorpay/webhook`. Use a webhook secret distinct from the API secret.
+- Test checkout is disabled unless `RAZORPAY_TEST_CHECKOUT_ENABLED=true`.
+  Only protected-database admins and UUIDs listed in the server-only
+  `RAZORPAY_TEST_USER_IDS` value can see or call it. Disable it by removing the
+  flag or setting it to any value other than `true`.
 - Run `node scripts/reconcile-razorpay.mjs` for a dry run. The explicit
   `--apply` flag is restricted to trusted backend operations.
 - Run migrations in `supabase/migrations` before production rollout.
