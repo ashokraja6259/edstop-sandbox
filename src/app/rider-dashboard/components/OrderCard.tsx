@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
+import type { AssignedRiderOrder } from '@/hooks/useRiderRealtime';
 
 
 interface OrderItem {
@@ -13,23 +14,8 @@ interface OrderItem {
   price: number;
 }
 
-interface OrderCardProps {
-  orderId: string;
-  orderNumber: string;
-  customerName: string;
-  customerPhone: string;
-  deliveryAddress: string;
-  landmark: string;
+interface OrderCardProps extends Omit<AssignedRiderOrder, 'items'> {
   items: OrderItem[];
-  totalAmount: number;
-  paymentMethod: 'COD' | 'ONLINE';
-  codAmount?: number;
-  status: 'pending-pickup' | 'in-transit' | 'delivered';
-  estimatedTime: string;
-  specialInstructions?: string;
-  restaurantName: string;
-  restaurantAddress: string;
-  pickupTime?: string;
   onStatusUpdate: (orderId: string, newStatus: string) => void;
   onNavigate: (address: string) => void;
   onContact: (phone: string) => void;

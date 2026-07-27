@@ -29,7 +29,7 @@ export default function WalletPage() {
     },
   });
 
-  const toast = useToast();
+  const { success: showSuccess, error: showError } = useToast();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -37,18 +37,18 @@ export default function WalletPage() {
       setIsOffline(false);
       reset();
       setHasError(false);
-      toast.success('Back online', 'Connection restored');
+      showSuccess('Back online', 'Connection restored');
     };
     const handleOffline = () => {
       setIsOffline(true);
       setHasError(true);
       retry();
-      toast.error('No connection', 'You are currently offline');
+      showError('No connection', 'You are currently offline');
     };
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
-  }, [retry, reset]);
+  }, [retry, reset, showError, showSuccess]);
 
 
 

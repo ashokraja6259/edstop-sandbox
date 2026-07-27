@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 interface OrderItem {
@@ -14,11 +14,12 @@ interface OrderItem {
 
 export default async function OrderDetailsPage({ params }: Props) {
   const supabase = await createClient(); // ✅ uses secure server client
+  const { id } = await params;
 
   const { data: order, error } = await supabase
     .from('orders')
     .select('*')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (error || !order) {

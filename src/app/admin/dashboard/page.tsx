@@ -9,11 +9,12 @@ export const dynamic = 'force-dynamic';
 export default async function AdminDashboardPage({
   searchParams,
 }: {
-  searchParams: { range?: string };
+  searchParams: Promise<{ range?: string }>;
 }) {
   await requireRole('admin');
 
-  const range = Number(searchParams?.range || 30);
+  const { range: requestedRange } = await searchParams;
+  const range = Number(requestedRange || 30);
 
   return (
     <Suspense fallback={<div className="p-8">Loading Dashboard...</div>}>

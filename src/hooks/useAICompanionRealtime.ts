@@ -3,8 +3,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { createClient } from '@/lib/supabaseClient';
-import { useToast } from '@/contexts/ToastContext';
+import { supabase } from '@/lib/supabaseClient';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface AIUsageData {
@@ -31,8 +30,6 @@ export function useAICompanionRealtime(
   defaultQuestionsUsed = 3,
   defaultIsPremium = false
 ): AIUsageData {
-  const supabase = createClient(); // ✅ correct client usage
-  const toast = useToast();
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   const prevDataRef = useRef({
@@ -86,7 +83,7 @@ export function useAICompanionRealtime(
 
     fetchInitialData();
     return () => { cancelled = true; };
-  }, [userId, supabase]);
+  }, [userId]);
 
   /* ───────── CLEANUP ───────── */
 
@@ -96,7 +93,7 @@ export function useAICompanionRealtime(
       channelRef.current = null;
     }
     setIsLive(false);
-  }, [supabase]);
+  }, []);
 
   /* ───────── REALTIME SUBSCRIPTION ───────── */
 
@@ -133,7 +130,7 @@ export function useAICompanionRealtime(
     channelRef.current = channel;
 
     return cleanup;
-  }, [userId, cleanup, supabase]);
+  }, [userId, cleanup]);
 
   return {
     questionsUsed,

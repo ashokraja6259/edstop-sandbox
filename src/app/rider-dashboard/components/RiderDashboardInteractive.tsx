@@ -13,8 +13,9 @@ import { useRetry } from '@/hooks/useRetry';
 import { useToast } from '@/contexts/ToastContext';
 import {
   useRiderRealtime,
+  type AssignedRiderOrder,
+  type AvailableRiderOrder,
   type RiderBatchGroup,
-  type RiderOrder,
   type RiderStats,
 } from '@/hooks/useRiderRealtime';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,7 +38,7 @@ const LiveBadge = () => (
   </span>
 );
 
-const formatItems = (items: RiderOrder['items']) => {
+const formatItems = (items: AvailableRiderOrder['items']) => {
   if (!items.length) return 'Items unavailable';
 
   return items
@@ -51,7 +52,7 @@ const AvailableOrderCard = ({
   onNavigate,
   onContact,
 }: {
-  order: RiderOrder;
+  order: AvailableRiderOrder;
   onClaim: (orderId: string) => void;
   onNavigate: (address: string) => void;
   onContact: (phone: string) => void;
@@ -149,9 +150,12 @@ const RiderDashboardInteractive = () => {
     'available' | 'active' | 'batch' | 'completed'
   >('available');
 
-  const [localAvailableOrders, setLocalAvailableOrders] = useState<RiderOrder[]>([]);
-  const [localActiveOrders, setLocalActiveOrders] = useState<RiderOrder[]>([]);
-  const [localCompletedOrders, setLocalCompletedOrders] = useState<RiderOrder[]>([]);
+  const [localAvailableOrders, setLocalAvailableOrders] =
+    useState<AvailableRiderOrder[]>([]);
+  const [localActiveOrders, setLocalActiveOrders] =
+    useState<AssignedRiderOrder[]>([]);
+  const [localCompletedOrders, setLocalCompletedOrders] =
+    useState<AssignedRiderOrder[]>([]);
   const [localBatchDeliveries, setLocalBatchDeliveries] = useState<RiderBatchGroup[]>([]);
   const [localRiderStats, setLocalRiderStats] = useState<RiderStats>(EMPTY_STATS);
 
@@ -191,13 +195,17 @@ const RiderDashboardInteractive = () => {
   } = useRiderRealtime(user?.id);
 
   useEffect(() => {
-    if (!isLiveLoading) {
+    if (isLiveLoading) return;
+
+    const syncTimer = window.setTimeout(() => {
       setLocalAvailableOrders(liveAvailableOrders);
       setLocalActiveOrders(liveActiveOrders);
       setLocalCompletedOrders(liveCompletedOrders);
       setLocalBatchDeliveries(liveBatchDeliveries);
       setLocalRiderStats(liveRiderStats);
-    }
+    }, 0);
+
+    return () => window.clearTimeout(syncTimer);
   }, [
     isLiveLoading,
     liveAvailableOrders,

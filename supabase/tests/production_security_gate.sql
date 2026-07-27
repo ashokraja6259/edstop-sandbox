@@ -499,6 +499,7 @@ SELECT pg_temp.assert_result(
        WHERE checkout_idempotency_key = 'security-gate-second-success')
   AND (SELECT balance = 85 FROM public.wallets
        WHERE user_id = '10000000-0000-0000-0000-000000000001')
+  AND to_regclass('pg_temp.tmp_checkout_items') IS NULL
 );
 
 RESET ROLE;

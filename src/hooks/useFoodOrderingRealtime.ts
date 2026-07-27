@@ -3,7 +3,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { createClient } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/contexts/ToastContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -80,10 +80,7 @@ export function useFoodOrderingRealtime(
 
   /* ----- stable clients ----- */
 
-  const supabaseRef = useRef(createClient());
-  const supabase = supabaseRef.current;
-
-  const toast = useToast();
+  const { info: showInfo } = useToast();
 
   /* ----- refs ----- */
 
@@ -159,7 +156,7 @@ export function useFoodOrderingRealtime(
 
     }
 
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data fetch starts hook state from Supabase on mount
@@ -279,7 +276,7 @@ export function useFoodOrderingRealtime(
             restaurantName: order.restaurant_name,
           });
 
-          toast.info(
+          showInfo(
             'Order Update',
             `Order #${order.order_number} → ${order.status}`
           );
@@ -295,7 +292,7 @@ export function useFoodOrderingRealtime(
       orderChannelRef.current = null;
     };
 
-  }, [userId, toast]);
+  }, [showInfo, userId]);
 
   /* ================= HELPERS ================= */
 

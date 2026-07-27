@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Icon from '@/components/ui/AppIcon';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -147,16 +147,15 @@ const DATE_PRESETS = [
 
 export default function PromotionsAnalyticsDashboard() {
   const [selectedPreset, setSelectedPreset] = useState(1);
-  const [dailyData, setDailyData] = useState<DailyUsage[]>([]);
+  const dailyData = useMemo(
+    () => generateDailyData(DATE_PRESETS[selectedPreset].days),
+    [selectedPreset]
+  );
   const [sortBy, setSortBy] = useState<'usageCount' | 'totalDiscount' | 'redemptionRate'>('usageCount');
   const [activeTab, setActiveTab] = useState<'overview' | 'codes' | 'trends'>('overview');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [showCustom, setShowCustom] = useState(false);
-
-  useEffect(() => {
-    setDailyData(generateDailyData(DATE_PRESETS[selectedPreset].days));
-  }, [selectedPreset]);
 
   const totalUsage = PROMO_DATA.reduce((s, p) => s + p.usageCount, 0);
   const totalDiscount = PROMO_DATA.reduce((s, p) => s + p.totalDiscount, 0);

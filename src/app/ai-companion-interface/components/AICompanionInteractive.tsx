@@ -5,16 +5,8 @@
 import { useState, useEffect, useRef } from 'react';
 import HeaderBrand from '@/components/common/HeaderBrand';
 import WalletIndicator from '@/components/common/WalletIndicator';
-import Icon from '@/components/ui/AppIcon';
 import ChatMessage from './ChatMessage';
-import QuestionCounter from './QuestionCounter';
-import SuggestedPrompts from './SuggestedPrompts';
-import ChatHistory from './ChatHistory';
 import PremiumUpgradeModal from './PremiumUpgradeModal';
-import EmptyState from '@/components/ui/EmptyState';
-import ErrorFallback from '@/components/ui/ErrorFallback';
-import { useRetry } from '@/hooks/useRetry';
-import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAICompanionRealtime } from '@/hooks/useAICompanionRealtime';
 import { useIsClient } from '@/hooks/useIsClient';
@@ -25,14 +17,6 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
-  isBookmarked: boolean;
-}
-
-interface ChatSession {
-  id: string;
-  title: string;
-  date: string;
-  messageCount: number;
   isBookmarked: boolean;
 }
 
@@ -53,38 +37,14 @@ const AICompanionInteractive = () => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState('session-1');
-  const [hasApiError, setHasApiError] = useState(false);
-  const [isOffline, setIsOffline] = useState(false);
-  const [lastUserMessage, setLastUserMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const { user } = useAuth();
 
-  const {
-    questionsUsed,
-    questionsLimit,
-    isPremium,
-    isLoading: usageLoading,
-    isLive,
-  } = useAICompanionRealtime(user?.id, 3, false);
+  const { questionsUsed, questionsLimit, isPremium } =
+    useAICompanionRealtime(user?.id, 3, false);
 
   const questionsRemaining = questionsLimit - questionsUsed;
-
-  const { retry: autoRetry, manualRetry, reset: resetRetry, isRetrying, retryCount, nextRetryIn, maxRetriesReached } = useRetry({
-    maxRetries: 3,
-    baseDelay: 1500,
-    onRetry: async () => {
-      if (lastUserMessage) {
-        setHasApiError(false);
-        await sendMessageToAI(lastUserMessage);
-      }
-    },
-  });
-
-  const toast = useToast();
 
   useEffect(() => {
     if (isHydrated && messagesEndRef.current) {
@@ -92,9 +52,8 @@ const AICompanionInteractive = () => {
     }
   }, [messages, isHydrated]);
 
-  const sendMessageToAI = async (messageContent: string) => {
+  const sendMessageToAI = async () => {
     setIsLoading(true);
-    setHasApiError(false);
 
     return new Promise<void>((resolve) => {
       setTimeout(() => {
@@ -109,7 +68,6 @@ const AICompanionInteractive = () => {
 
         setMessages((prev) => [...prev, aiResponse]);
         setIsLoading(false);
-        resetRetry();
         resolve();
       }, 1500);
     });
@@ -132,7 +90,6 @@ const AICompanionInteractive = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setLastUserMessage(inputValue);
     setInputValue('');
 
     if (user?.id) {
@@ -151,11 +108,9 @@ const AICompanionInteractive = () => {
     }
 
     try {
-      await sendMessageToAI(inputValue);
+      await sendMessageToAI();
     } catch {
-      setHasApiError(true);
       setIsLoading(false);
-      autoRetry();
     }
   };
 
