@@ -70,45 +70,4 @@ AS $$
     SELECT role::TEXT FROM public.user_profiles WHERE id = user_id;
 $$;
 
--- Mock data with different roles
-DO $$
-DECLARE
-    student_uuid UUID := gen_random_uuid();
-    rider_uuid UUID := gen_random_uuid();
-    admin_uuid UUID := gen_random_uuid();
-BEGIN
-    -- Create auth users with different roles
-    INSERT INTO auth.users (
-        id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-        created_at, updated_at, raw_user_meta_data, raw_app_meta_data,
-        is_sso_user, is_anonymous, confirmation_token, confirmation_sent_at,
-        recovery_token, recovery_sent_at, email_change_token_new, email_change,
-        email_change_sent_at, email_change_token_current, email_change_confirm_status,
-        reauthentication_token, reauthentication_sent_at, phone, phone_change,
-        phone_change_token, phone_change_sent_at
-    ) VALUES
-        (student_uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-         'student@example.com', crypt('password123', gen_salt('bf', 10)), now(), now(), now(),
-         jsonb_build_object('full_name', 'Student User', 'role', 'student'),
-         jsonb_build_object('provider', 'email', 'providers', ARRAY['email']::TEXT[]),
-         false, false, '', null, '', null, '', '', null, '', 0, '', null, null, '', '', null),
-        (rider_uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-         'rider@example.com', crypt('password123', gen_salt('bf', 10)), now(), now(), now(),
-         jsonb_build_object('full_name', 'Rider User', 'role', 'rider'),
-         jsonb_build_object('provider', 'email', 'providers', ARRAY['email']::TEXT[]),
-         false, false, '', null, '', null, '', '', null, '', 0, '', null, null, '', '', null),
-        (admin_uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
-         'admin@example.com', crypt('password123', gen_salt('bf', 10)), now(), now(), now(),
-         jsonb_build_object('full_name', 'Admin User', 'role', 'admin'),
-         jsonb_build_object('provider', 'email', 'providers', ARRAY['email']::TEXT[]),
-         false, false, '', null, '', null, '', '', null, '', 0, '', null, null, '', '', null)
-    ON CONFLICT (id) DO NOTHING;
-
-    RAISE NOTICE 'Mock users created with credentials:';
-    RAISE NOTICE 'Student: student@example.com / password123';
-    RAISE NOTICE 'Rider: rider@example.com / password123';
-    RAISE NOTICE 'Admin: admin@example.com / password123';
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE NOTICE 'Mock data insertion failed: %', SQLERRM;
-END $$;
+-- Production migrations must not create demo auth identities.
