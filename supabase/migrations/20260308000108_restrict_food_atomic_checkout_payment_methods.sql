@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION public.create_order_atomic(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = pg_catalog
 AS $$
 DECLARE
   v_auth_user UUID;
@@ -26,6 +26,7 @@ DECLARE
   v_new_balance NUMERIC(10, 2);
   v_promo RECORD;
   v_promo_id UUID := NULL;
+  v_normalized_items JSONB;
   v_requested_item_count INTEGER := 0;
   v_valid_item_count INTEGER := 0;
   v_payment_method TEXT;
@@ -86,24 +87,25 @@ BEGIN
     END IF;
   END IF;
 
-  CREATE TEMP TABLE tmp_checkout_items (
-    menu_item_id UUID PRIMARY KEY,
-    quantity INTEGER NOT NULL
-  ) ON COMMIT DROP;
+  SELECT jsonb_agg(
+           jsonb_build_object(
+             'menu_item_id', grouped.menu_item_id,
+             'quantity', grouped.quantity
+           )
+         )
+  INTO v_normalized_items
+  FROM (
+    SELECT
+      x.id AS menu_item_id,
+      SUM(x.quantity)::INTEGER AS quantity
+    FROM jsonb_to_recordset(p_items) AS x(
+      id UUID,
+      quantity INTEGER
+    )
+    GROUP BY x.id
+  ) AS grouped;
 
-  INSERT INTO tmp_checkout_items (menu_item_id, quantity)
-  SELECT
-    x.id,
-    SUM(x.quantity)::INTEGER
-  FROM jsonb_to_recordset(p_items) AS x(
-    id UUID,
-    quantity INTEGER
-  )
-  GROUP BY x.id;
-
-  SELECT COUNT(*)
-  INTO v_requested_item_count
-  FROM tmp_checkout_items;
+  v_requested_item_count := COALESCE(jsonb_array_length(v_normalized_items), 0);
 
   IF v_requested_item_count = 0 THEN
     RAISE EXCEPTION 'Cart is empty';
@@ -111,7 +113,8 @@ BEGIN
 
   SELECT COUNT(*)
   INTO v_valid_item_count
-  FROM tmp_checkout_items t
+  FROM jsonb_to_recordset(v_normalized_items)
+    AS t(menu_item_id UUID, quantity INTEGER)
   JOIN public.menu_items m
     ON m.id = t.menu_item_id
   WHERE m.restaurant_id = p_restaurant_id
@@ -123,7 +126,8 @@ BEGIN
 
   SELECT COALESCE(SUM(ROUND((m.price * t.quantity)::NUMERIC, 2)), 0)
   INTO v_subtotal
-  FROM tmp_checkout_items t
+  FROM jsonb_to_recordset(v_normalized_items)
+    AS t(menu_item_id UUID, quantity INTEGER)
   JOIN public.menu_items m
     ON m.id = t.menu_item_id
   WHERE m.restaurant_id = p_restaurant_id
@@ -235,7 +239,8 @@ BEGIN
     t.quantity,
     m.price,
     ROUND((m.price * t.quantity)::NUMERIC, 2)
-  FROM tmp_checkout_items t
+  FROM jsonb_to_recordset(v_normalized_items)
+    AS t(menu_item_id UUID, quantity INTEGER)
   JOIN public.menu_items m
     ON m.id = t.menu_item_id
   WHERE m.restaurant_id = p_restaurant_id

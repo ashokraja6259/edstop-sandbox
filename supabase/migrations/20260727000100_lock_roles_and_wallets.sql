@@ -53,7 +53,7 @@ REVOKE ALL ON TABLE public.user_profiles FROM anon, authenticated;
 GRANT SELECT ON TABLE public.user_profiles TO authenticated;
 GRANT UPDATE (full_name, avatar_url) ON TABLE public.user_profiles TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.get_user_role(p_user_id uuid)
+CREATE OR REPLACE FUNCTION public.get_user_role(user_id uuid)
 RETURNS text
 LANGUAGE plpgsql
 STABLE
@@ -62,18 +62,23 @@ SET search_path = pg_catalog
 AS $function$
 DECLARE
   v_caller uuid := auth.uid();
+  v_requested_user_id uuid := user_id;
 BEGIN
   IF v_caller IS NULL THEN
     RAISE EXCEPTION 'authentication required' USING ERRCODE = '42501';
   END IF;
-  IF p_user_id <> v_caller
+  IF v_requested_user_id <> v_caller
      AND NOT EXISTS (
        SELECT 1 FROM public.user_profiles AS up
        WHERE up.id = v_caller AND up.role = 'admin'::public.user_role
      ) THEN
     RAISE EXCEPTION 'insufficient privilege' USING ERRCODE = '42501';
   END IF;
-  RETURN (SELECT up.role::text FROM public.user_profiles AS up WHERE up.id = p_user_id);
+  RETURN (
+    SELECT up.role::text
+    FROM public.user_profiles AS up
+    WHERE up.id = v_requested_user_id
+  );
 END;
 $function$;
 
