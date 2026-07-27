@@ -625,13 +625,8 @@ BEGIN
   WHERE id = p_payment_intent_id
   FOR UPDATE;
 
-  IF NOT FOUND
-     OR v_intent.provider_payment_id IS NULL
-     OR v_intent.internal_order_id IS NULL
-     OR v_intent.status NOT IN (
-       'order_created', 'partially_refunded', 'refund_failed'
-     ) THEN
-    RAISE EXCEPTION 'Payment is not refundable';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Payment intent not found';
   END IF;
 
   SELECT *
@@ -647,6 +642,14 @@ BEGIN
       'status', v_existing.status,
       'idempotent_replay', true
     );
+  END IF;
+
+  IF v_intent.provider_payment_id IS NULL
+     OR v_intent.internal_order_id IS NULL
+     OR v_intent.status NOT IN (
+       'order_created', 'partially_refunded', 'refund_failed'
+     ) THEN
+    RAISE EXCEPTION 'Payment is not refundable';
   END IF;
 
   SELECT COALESCE(SUM(amount_paise), 0)

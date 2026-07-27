@@ -248,6 +248,8 @@ SELECT pg_temp.assert_payment(
    WHERE payment_intent_id = '82000000-0000-0000-0000-000000000001')
 );
 
+GRANT INSERT ON TABLE razorpay_gate_results TO authenticated;
+
 SET LOCAL ROLE authenticated;
 SELECT set_config(
   'request.jwt.claim.sub',
