@@ -45,6 +45,43 @@ interface CartItem {
   alt: string;
 }
 
+interface RazorpayCheckoutResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayCheckoutInstance {
+  open(): void;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => RazorpayCheckoutInstance;
+  }
+}
+
+async function loadRazorpayCheckout() {
+  if (window.Razorpay) return;
+  await new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      'script[data-edstop-razorpay-checkout]'
+    );
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Unable to load Razorpay Checkout')), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.dataset.edstopRazorpayCheckout = 'true';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Unable to load Razorpay Checkout'));
+    document.head.appendChild(script);
+  });
+}
+
 const DarkStoreInteractive = () => {
   const supabase = useMemo(() => createSupabaseClient(), []);
   const isHydrated = useIsClient();
@@ -68,6 +105,9 @@ const DarkStoreInteractive = () => {
   } | null>(null);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [walletBalance, setWalletBalance] = useState(0);
+  const [testCheckoutEnabled, setTestCheckoutEnabled] = useState(false);
+  const [completedPaymentMethod, setCompletedPaymentMethod] =
+    useState<'cod' | 'razorpay'>('cod');
 
   const { retry, manualRetry, reset, isRetrying, retryCount, nextRetryIn, maxRetriesReached } = useRetry({
     maxRetries: 3,
@@ -134,6 +174,22 @@ const DarkStoreInteractive = () => {
       cancelled = true;
     };
   }, [supabase, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    fetch('/api/dark-store/payment/test-access', { cache: 'no-store' })
+      .then(async (response) => response.ok ? response.json() : { enabled: false })
+      .then((result) => {
+        if (!cancelled) setTestCheckoutEnabled(result.enabled === true);
+      })
+      .catch(() => {
+        if (!cancelled) setTestCheckoutEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const categories: Category[] = [
     { id: 'all', name: 'All Items', icon: 'ShoppingBagIcon', count: 24 },
@@ -277,12 +333,125 @@ const DarkStoreInteractive = () => {
     });
   };
 
-  const handleCheckout = async (promoCode?: string) => {
+  const handleCheckout = async (
+    paymentMethod: 'cod' | 'razorpay_test',
+    walletAmountPaise: number
+  ) => {
     try {
       setIsCheckingOut(true);
 
       if (!cartItems.length) {
         throw new Error('Your cart is empty.');
+      }
+
+      if (paymentMethod === 'razorpay_test') {
+        if (!testCheckoutEnabled || !user?.id) {
+          throw new Error('Razorpay Test Mode checkout is not available.');
+        }
+
+        const cartKey = cartItems
+          .map((item) => `${item.id}:${item.quantity}`)
+          .sort()
+          .join('|');
+        const storageKey = `edstop-rzp-test:${user.id}:${cartKey}`;
+        let idempotencyKey = sessionStorage.getItem(storageKey);
+        if (!idempotencyKey) {
+          idempotencyKey = crypto.randomUUID();
+          sessionStorage.setItem(storageKey, idempotencyKey);
+        }
+
+        const createResponse = await fetch('/api/dark-store/payment/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: cartItems.map((item) => ({
+              id: item.id,
+              quantity: item.quantity,
+            })),
+            idempotencyKey,
+            walletAmountPaise,
+          }),
+        });
+        const payment = await createResponse.json();
+        if (!createResponse.ok) {
+          throw new Error(payment?.error || 'Unable to initialize Test Mode payment');
+        }
+
+        if (payment.status === 'order_created' && payment.orderId) {
+          setOrderDetails({
+            orderId: payment.orderId,
+            total: Number(
+              payment.breakdown?.totalPaise
+                ?? Number(payment.amount) + walletAmountPaise
+            ) / 100,
+            items: cartItems,
+          });
+          setCompletedPaymentMethod('razorpay');
+          setOrderSuccess(true);
+          setCart({});
+          setIsCartOpen(false);
+          sessionStorage.removeItem(storageKey);
+          toast.success('Payment recovered', `Existing order ${payment.orderId} loaded.`);
+          return;
+        }
+
+        await loadRazorpayCheckout();
+        if (!window.Razorpay || !payment.razorpayOrderId) {
+          throw new Error('Razorpay Checkout is unavailable');
+        }
+
+        const checkout = new window.Razorpay({
+          key: payment.keyId,
+          order_id: payment.razorpayOrderId,
+          amount: payment.amount,
+          currency: payment.currency,
+          name: 'EdStop Test Mode',
+          description: `Test payment intent ${payment.intentId}`,
+          handler: async (result: RazorpayCheckoutResponse) => {
+            const verifyResponse = await fetch('/api/dark-store/payment/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpayOrderId: result.razorpay_order_id,
+                razorpayPaymentId: result.razorpay_payment_id,
+                razorpaySignature: result.razorpay_signature,
+              }),
+            });
+            const verified = await verifyResponse.json();
+            if (!verifyResponse.ok) {
+              toast.error(
+                'Payment pending verification',
+                verified?.error || 'Refresh to recover the existing payment.'
+              );
+              return;
+            }
+            setOrderDetails({
+              orderId: verified.orderId,
+              total: Number(
+                payment.breakdown?.totalPaise
+                  ?? Number(payment.amount) + walletAmountPaise
+              ) / 100,
+              items: cartItems,
+            });
+            setCompletedPaymentMethod('razorpay');
+            setOrderSuccess(true);
+            setCart({});
+            setActiveOrderId(verified.orderNumber ?? null);
+            setIsCartOpen(false);
+            sessionStorage.removeItem(storageKey);
+            toast.success('Test payment verified', `Order ${verified.orderNumber ?? verified.orderId} created.`);
+          },
+          modal: {
+            ondismiss: () => {
+              toast.info(
+                'Payment window closed',
+                'No new attempt was created. Reopen checkout or refresh to recover this payment.'
+              );
+            },
+          },
+        });
+        checkout.open();
+        return;
       }
 
       const response = await fetch('/api/dark-store/cod/create-order', {
@@ -295,7 +464,7 @@ const DarkStoreInteractive = () => {
             id: item.id,
             quantity: item.quantity,
           })),
-          promoCode: promoCode ?? null,
+          promoCode: null,
         }),
       });
 
@@ -314,6 +483,7 @@ const DarkStoreInteractive = () => {
       });
 
       setOrderSuccess(true);
+      setCompletedPaymentMethod('cod');
       setCart({});
       setActiveOrderId(data.orderNumber ?? null);
       setIsCartOpen(false);
@@ -613,6 +783,7 @@ const DarkStoreInteractive = () => {
             isOpen={true}
             onClose={() => {}}
             isCheckingOut={isCheckingOut}
+            testCheckoutEnabled={testCheckoutEnabled}
           />
         </div>
       </div>
@@ -627,6 +798,7 @@ const DarkStoreInteractive = () => {
           isOpen={isCartOpen}
           onClose={() => setIsCartOpen(false)}
           isCheckingOut={isCheckingOut}
+          testCheckoutEnabled={testCheckoutEnabled}
         />
       </div>
 
@@ -641,7 +813,7 @@ const DarkStoreInteractive = () => {
           orderId={orderDetails.orderId}
           items={orderDetails.items}
           total={orderDetails.total}
-          paymentMethod="cod"
+          paymentMethod={completedPaymentMethod}
           estimatedTime="10-20 min"
           promoCode={orderDetails.promoCode}
           promoDiscount={orderDetails.promoDiscount}

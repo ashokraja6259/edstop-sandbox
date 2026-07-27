@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
-import { Buffer } from 'node:buffer';
-import crypto from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import type { DarkStoreCalculatedItem } from '@/lib/dark-store/pricing';
+import {
+  isValidIdentifier,
+  razorpayFetch,
+  readJsonBody,
+  validateRazorpayEnvironment,
+  verifyHmacHex,
+} from '@/lib/payments/razorpay';
+import { isApprovedRazorpayTestUser } from '@/lib/payments/test-checkout';
 
 interface VerifyDarkStorePaymentBody {
   razorpayOrderId: string;
@@ -15,64 +20,21 @@ interface PaymentIntentRow {
   id: string;
   provider_order_id: string;
   provider_payment_id: string | null;
-  amount_paise: number;
+  razorpay_amount_paise: number;
   currency: string;
-  items: unknown;
-  promo_code: string | null;
   status: string;
+  internal_order_id: string | null;
 }
 
-function parseStoredItems(items: unknown): DarkStoreCalculatedItem[] {
-  if (!Array.isArray(items) || items.length === 0) {
-    throw new Error('Stored payment intent has no items');
-  }
-
-  return items.map((item) => {
-    if (!item || typeof item !== 'object') {
-      throw new Error('Stored payment intent has invalid items');
-    }
-
-    const record = item as Record<string, unknown>;
-    const id = typeof record.id === 'string' ? record.id : '';
-    const name = typeof record.name === 'string' ? record.name : '';
-    const quantity = Number(record.quantity);
-    const price = Number(record.price);
-    const totalPrice = Number(record.totalPrice);
-
-    if (
-      !id ||
-      !name ||
-      !Number.isFinite(quantity) ||
-      quantity < 1 ||
-      !Number.isFinite(price) ||
-      price < 0 ||
-      !Number.isFinite(totalPrice) ||
-      totalPrice < 0
-    ) {
-      throw new Error('Stored payment intent has invalid items');
-    }
-
-    return {
-      id,
-      name,
-      quantity,
-      price,
-      totalPrice,
-    };
-  });
+interface FinalizeResult {
+  order_id: string;
+  order_number?: string;
+  idempotent_replay: boolean;
 }
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
-    if (!keyId || !keySecret) {
-      return NextResponse.json({ error: 'Payment provider is not configured' }, { status: 500 });
-    }
-
     const supabase = await createClient();
-
     const {
       data: { user },
       error: authError,
@@ -82,177 +44,176 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
     }
 
-    const body = (await req.json()) as VerifyDarkStorePaymentBody;
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (!isApprovedRazorpayTestUser(user.id, profile?.role)) {
+      return NextResponse.json(
+        { error: 'Razorpay Test Mode checkout is disabled' },
+        { status: 403 }
+      );
+    }
+    const environment = validateRazorpayEnvironment();
 
-    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
+    const body = await readJsonBody<VerifyDarkStorePaymentBody>(request);
+    const {
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    } = body;
 
-    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
-      return NextResponse.json({ error: 'Missing payment verification fields' }, { status: 400 });
+    if (
+      !isValidIdentifier(razorpayOrderId)
+      || !isValidIdentifier(razorpayPaymentId)
+      || typeof razorpaySignature !== 'string'
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid payment verification fields' },
+        { status: 400 }
+      );
     }
 
-    const expectedSignature = crypto
-      .createHmac('sha256', keySecret)
-      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-      .digest('hex');
-
-    if (expectedSignature !== razorpaySignature) {
+    if (
+      !verifyHmacHex(
+        `${razorpayOrderId}|${razorpayPaymentId}`,
+        razorpaySignature,
+        environment.keySecret
+      )
+    ) {
       return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 });
     }
 
-    const authHeader = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
-
-    const orderResponse = await fetch(`https://api.razorpay.com/v1/orders/${razorpayOrderId}`, {
-      headers: {
-        Authorization: `Basic ${authHeader}`,
-      },
-    });
-
-    const razorpayOrder = await orderResponse.json();
-
-    if (!orderResponse.ok) {
-      return NextResponse.json({ error: 'Unable to validate payment order' }, { status: 400 });
-    }
-
-    const paymentResponse = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}`, {
-      headers: {
-        Authorization: `Basic ${authHeader}`,
-      },
-    });
-
-    const paymentInfo = await paymentResponse.json();
-
-    if (!paymentResponse.ok || paymentInfo.status !== 'captured') {
-      return NextResponse.json({ error: 'Payment not captured' }, { status: 400 });
-    }
-
-    if (paymentInfo.order_id !== razorpayOrderId) {
-      return NextResponse.json({ error: 'Payment order mismatch' }, { status: 400 });
-    }
-
     const adminSupabase = createAdminClient();
-    const { data: paymentIntentData, error: paymentIntentError } = await adminSupabase
+    const { data: intentData, error: intentError } = await adminSupabase
       .from('payment_intents')
-      .select('id, provider_order_id, provider_payment_id, amount_paise, currency, items, promo_code, status')
+      .select(
+        'id, provider_order_id, provider_payment_id, razorpay_amount_paise, currency, status, internal_order_id'
+      )
       .eq('provider_order_id', razorpayOrderId)
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (paymentIntentError) {
-      return NextResponse.json({ error: 'Unable to validate payment intent' }, { status: 500 });
+    if (intentError) {
+      return NextResponse.json({ error: 'Unable to validate payment' }, { status: 500 });
     }
 
-    const paymentIntent = paymentIntentData as PaymentIntentRow | null;
-
-    if (!paymentIntent) {
-      return NextResponse.json({ error: 'Payment intent not found' }, { status: 400 });
+    const intent = intentData as PaymentIntentRow | null;
+    if (!intent || intent.provider_order_id !== razorpayOrderId) {
+      return NextResponse.json({ error: 'Payment intent not found' }, { status: 404 });
     }
 
-    if (paymentIntent.status !== 'created' || paymentIntent.provider_payment_id) {
-      return NextResponse.json({ error: 'Payment intent has already been used' }, { status: 409 });
+    if (intent.internal_order_id) {
+      if (
+        intent.provider_payment_id
+        && intent.provider_payment_id !== razorpayPaymentId
+      ) {
+        return NextResponse.json(
+          { error: 'Payment identifier mismatch' },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        orderId: intent.internal_order_id,
+        idempotentReplay: true,
+      });
     }
 
-    if (Number(razorpayOrder.amount) !== paymentIntent.amount_paise || razorpayOrder.currency !== paymentIntent.currency) {
+    const [orderResponse, paymentResponse] = await Promise.all([
+      razorpayFetch(`/orders/${encodeURIComponent(razorpayOrderId)}`, environment),
+      razorpayFetch(`/payments/${encodeURIComponent(razorpayPaymentId)}`, environment),
+    ]);
+    const [providerOrder, providerPayment] = await Promise.all([
+      orderResponse.json(),
+      paymentResponse.json(),
+    ]);
+
+    if (!orderResponse.ok || !paymentResponse.ok) {
+      return NextResponse.json({ error: 'Unable to validate provider payment' }, { status: 502 });
+    }
+    if (
+      providerPayment.status !== 'captured'
+      || providerPayment.captured !== true
+    ) {
+      return NextResponse.json({ error: 'Payment is not captured' }, { status: 409 });
+    }
+    if (
+      providerPayment.order_id !== razorpayOrderId
+      || providerOrder.id !== razorpayOrderId
+    ) {
+      return NextResponse.json({ error: 'Payment order mismatch' }, { status: 400 });
+    }
+    if (
+      Number(providerOrder.amount) !== intent.razorpay_amount_paise
+      || providerOrder.currency !== intent.currency
+      || Number(providerPayment.amount) !== intent.razorpay_amount_paise
+      || providerPayment.currency !== intent.currency
+    ) {
       return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 });
     }
 
-    if (Number(paymentInfo.amount) !== paymentIntent.amount_paise || paymentInfo.currency !== paymentIntent.currency) {
-      return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 });
+    const { data: finalizedData, error: finalizeError } = await adminSupabase.rpc(
+      'finalize_razorpay_payment',
+      {
+        p_payment_intent_id: intent.id,
+        p_provider_payment_id: razorpayPaymentId,
+        p_amount_paise: intent.razorpay_amount_paise,
+        p_currency: intent.currency,
+        p_provider_snapshot: {
+          payment_status: providerPayment.status,
+          order_status: providerOrder.status,
+          captured: providerPayment.captured,
+        },
+      }
+    );
+
+    if (finalizeError) {
+      await adminSupabase
+        .from('payment_intents')
+        .update({
+          status: 'manual_review',
+          failure_code: 'ATOMIC_FINALIZATION_FAILED',
+          failure_reason: 'Captured payment requires reconciliation',
+          last_provider_sync_at: new Date().toISOString(),
+        })
+        .eq('id', intent.id)
+        .in('status', [
+          'razorpay_order_created',
+          'authorized',
+          'captured',
+          'verified',
+        ]);
+      return NextResponse.json(
+        { error: 'Payment captured; order completion is being reconciled' },
+        { status: 202 }
+      );
     }
 
-    const storedItems = parseStoredItems(paymentIntent.items);
-    const subtotal = storedItems.reduce((sum, item) => sum + item.totalPrice, 0);
-    const deliveryFee = subtotal >= 99 ? 0 : 10;
-    const totalBeforeDiscount = subtotal + deliveryFee;
-    const finalAmount = paymentIntent.amount_paise / 100;
-    const discountAmount = Math.max(0, Math.round((totalBeforeDiscount - finalAmount) * 100) / 100);
-    const appliedPromoCode = paymentIntent.promo_code;
-
-    const { data: existingOrder, error: existingOrderError } = await adminSupabase
-      .from('orders')
-      .select('id')
-      .eq('payment_id', razorpayPaymentId)
-      .maybeSingle();
-
-    if (existingOrderError) {
-      return NextResponse.json({ error: 'Unable to validate payment replay' }, { status: 500 });
-    }
-
-    if (existingOrder) {
-      return NextResponse.json({ error: 'Payment has already been used for an order' }, { status: 409 });
-    }
-
-    const orderNumber = `DS${Date.now().toString().slice(-8)}`;
-    const checkoutItems = storedItems.map((item) => ({
-      id: item.id,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-    }));
-
-    const { data: createdOrder, error: orderInsertError } = await adminSupabase
-      .from('orders')
-      .insert({
-        user_id: user.id,
-        order_number: orderNumber,
-        order_type: 'store',
-        status: 'pending',
-        total_amount: totalBeforeDiscount,
-        delivery_fee: deliveryFee,
-        discount_amount: discountAmount,
-        promo_code: appliedPromoCode,
-        promo_discount: discountAmount,
-        final_amount: finalAmount,
-        payment_method: 'razorpay',
-        payment_id: razorpayPaymentId,
-        items: checkoutItems,
-        notes: null,
-      })
-      .select('id, order_number')
-      .single();
-
-    if (orderInsertError || !createdOrder) {
-      return NextResponse.json({ error: 'Failed to persist order' }, { status: 500 });
-    }
-
-    const orderItemsPayload = storedItems.map((item) => ({
-      order_id: createdOrder.id,
-      item_id: item.id,
-      item_name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      total_price: item.totalPrice,
-    }));
-
-    const { error: orderItemsError } = await adminSupabase.from('order_items').insert(orderItemsPayload);
-
-    if (orderItemsError) {
-      return NextResponse.json({ error: 'Failed to persist order items' }, { status: 500 });
-    }
-
-    const { error: intentUpdateError } = await adminSupabase
-      .from('payment_intents')
-      .update({
-        status: 'paid',
-        provider_payment_id: razorpayPaymentId,
-      })
-      .eq('id', paymentIntent.id)
-      .eq('status', 'created');
-
-    if (intentUpdateError) {
-      return NextResponse.json({ error: 'Failed to update payment intent' }, { status: 500 });
+    const finalized = finalizedData as FinalizeResult | null;
+    if (!finalized?.order_id) {
+      return NextResponse.json({ error: 'Unable to complete payment' }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      orderId: createdOrder.id,
-      orderNumber: createdOrder.order_number,
-      finalAmount,
-      items: checkoutItems,
-      promoCode: appliedPromoCode,
-      promoDiscount: discountAmount || undefined,
+      orderId: finalized.order_id,
+      orderNumber: finalized.order_number,
+      idempotentReplay: finalized.idempotent_replay,
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Payment verification failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message = error instanceof Error ? error.message : '';
+    const status = [
+      'Invalid request body',
+      'Request body is too large',
+    ].includes(message)
+      ? 400
+      : 500;
+    return NextResponse.json(
+      { error: status === 400 ? message : 'Unable to verify payment' },
+      { status }
+    );
   }
 }
