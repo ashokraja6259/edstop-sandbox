@@ -1,164 +1,145 @@
--- Fix Supabase rls_disabled_in_public warnings
+-- Fix Supabase rls_disabled_in_public warnings for optional operational tables.
+-- These tables exist in some deployed environments but are not created by this
+-- repository's migration history. Preserve their hardening without making a
+-- clean install depend on manually-created schema.
 
-alter table public.delivery_hubs enable row level security;
-alter table public.delivery_points enable row level security;
-alter table public.delivery_zones enable row level security;
-alter table public.dispatch_queue enable row level security;
-alter table public.menu_categories enable row level security;
-alter table public.menu_item_variants enable row level security;
-alter table public.restaurant_settlements enable row level security;
-alter table public.rider_settlements enable row level security;
-alter table public.riders enable row level security;
+DO $optional_rls$
+DECLARE
+  v_table text;
+  v_policy text;
+BEGIN
+  FOREACH v_table IN ARRAY ARRAY[
+    'delivery_hubs',
+    'delivery_points',
+    'delivery_zones',
+    'menu_categories',
+    'menu_item_variants'
+  ]
+  LOOP
+    IF to_regclass(format('public.%I', v_table)) IS NULL THEN
+      RAISE WARNING
+        'optional relation public.% is absent; RLS and policies were not applied',
+        v_table;
+      CONTINUE;
+    END IF;
 
-drop policy if exists "Public can view delivery hubs"
-on public.delivery_hubs;
+    EXECUTE format(
+      'ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',
+      v_table
+    );
 
-create policy "Public can view delivery hubs"
-on public.delivery_hubs
-for select
-to anon, authenticated
-using (true);
+    v_policy := CASE v_table
+      WHEN 'delivery_hubs' THEN 'Public can view delivery hubs'
+      WHEN 'delivery_points' THEN 'Public can view delivery points'
+      WHEN 'delivery_zones' THEN 'Public can view delivery zones'
+      WHEN 'menu_categories' THEN 'Public can view menu categories'
+      WHEN 'menu_item_variants' THEN 'Public can view menu item variants'
+    END;
 
-drop policy if exists "Public can view delivery points"
-on public.delivery_points;
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      v_policy,
+      v_table
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I
+       FOR SELECT TO anon, authenticated USING (true)',
+      v_policy,
+      v_table
+    );
 
-create policy "Public can view delivery points"
-on public.delivery_points
-for select
-to anon, authenticated
-using (true);
+    v_policy := CASE v_table
+      WHEN 'delivery_hubs' THEN 'Admins can manage delivery hubs'
+      WHEN 'delivery_points' THEN 'Admins can manage delivery points'
+      WHEN 'delivery_zones' THEN 'Admins can manage delivery zones'
+      WHEN 'menu_categories' THEN 'Admins can manage menu categories'
+      WHEN 'menu_item_variants' THEN 'Admins can manage menu item variants'
+    END;
 
-drop policy if exists "Public can view delivery zones"
-on public.delivery_zones;
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      v_policy,
+      v_table
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I
+       FOR ALL TO authenticated
+       USING (public.is_admin_user())
+       WITH CHECK (public.is_admin_user())',
+      v_policy,
+      v_table
+    );
+  END LOOP;
 
-create policy "Public can view delivery zones"
-on public.delivery_zones
-for select
-to anon, authenticated
-using (true);
+  FOREACH v_table IN ARRAY ARRAY[
+    'restaurant_settlements',
+    'rider_settlements',
+    'riders'
+  ]
+  LOOP
+    IF to_regclass(format('public.%I', v_table)) IS NULL THEN
+      RAISE WARNING
+        'optional relation public.% is absent; RLS and policies were not applied',
+        v_table;
+      CONTINUE;
+    END IF;
 
-drop policy if exists "Public can view menu categories"
-on public.menu_categories;
+    EXECUTE format(
+      'ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',
+      v_table
+    );
 
-create policy "Public can view menu categories"
-on public.menu_categories
-for select
-to anon, authenticated
-using (true);
+    v_policy := CASE v_table
+      WHEN 'restaurant_settlements' THEN 'Admins can manage restaurant settlements'
+      WHEN 'rider_settlements' THEN 'Admins can manage rider settlements'
+      WHEN 'riders' THEN 'Admins can manage riders'
+    END;
 
-drop policy if exists "Public can view menu item variants"
-on public.menu_item_variants;
+    EXECUTE format(
+      'DROP POLICY IF EXISTS %I ON public.%I',
+      v_policy,
+      v_table
+    );
+    EXECUTE format(
+      'CREATE POLICY %I ON public.%I
+       FOR ALL TO authenticated
+       USING (public.is_admin_user())
+       WITH CHECK (public.is_admin_user())',
+      v_policy,
+      v_table
+    );
+  END LOOP;
 
-create policy "Public can view menu item variants"
-on public.menu_item_variants
-for select
-to anon, authenticated
-using (true);
+  IF to_regclass('public.dispatch_queue') IS NULL THEN
+    RAISE WARNING
+      'optional relation public.dispatch_queue is absent; RLS and policies were not applied';
+  ELSE
+    ALTER TABLE public.dispatch_queue ENABLE ROW LEVEL SECURITY;
 
-drop policy if exists "Admins can manage delivery hubs"
-on public.delivery_hubs;
+    DROP POLICY IF EXISTS "Admins can manage dispatch queue"
+      ON public.dispatch_queue;
+    CREATE POLICY "Admins can manage dispatch queue"
+      ON public.dispatch_queue
+      FOR ALL
+      TO authenticated
+      USING (public.is_admin_user())
+      WITH CHECK (public.is_admin_user());
 
-create policy "Admins can manage delivery hubs"
-on public.delivery_hubs
-for all
-to authenticated
-using (public.is_admin_user())
-with check (public.is_admin_user());
-
-drop policy if exists "Admins can manage delivery points"
-on public.delivery_points;
-
-create policy "Admins can manage delivery points"
-on public.delivery_points
-for all
-to authenticated
-using (public.is_admin_user())
-with check (public.is_admin_user());
-
-drop policy if exists "Admins can manage delivery zones"
-on public.delivery_zones;
-
-create policy "Admins can manage delivery zones"
-on public.delivery_zones
-for all
-to authenticated
-using (public.is_admin_user())
-with check (public.is_admin_user());
-
-drop policy if exists "Admins can manage menu categories"
-on public.menu_categories;
-
-create policy "Admins can manage menu categories"
-on public.menu_categories
-for all
-to authenticated
-using (public.is_admin_user())
-with check (public.is_admin_user());
-
-drop policy if exists "Admins can manage menu item variants"
-on public.menu_item_variants;
-
-create policy "Admins can manage menu item variants"
-on public.menu_item_variants
-for all
-to authenticated
-using (public.is_admin_user())
-with check (public.is_admin_user());
-
-drop policy if exists "Admins can manage dispatch queue"
-on public.dispatch_queue;
-
-create policy "Admins can manage dispatch queue"
-on public.dispatch_queue
-for all
-to authenticated
-using (public.is_admin_user())
-with check (public.is_admin_user());
-
-drop policy if exists "Riders and admins can view dispatch queue"
-on public.dispatch_queue;
-
-create policy "Riders and admins can view dispatch queue"
-on public.dispatch_queue
-for select
-to authenticated
-using (
-  public.is_admin_user()
-  or exists (
-    select 1
-    from public.user_profiles
-    where id = auth.uid()
-      and role = 'rider'
-  )
-);
-
-drop policy if exists "Admins can manage restaurant settlements"
-on public.restaurant_settlements;
-
-create policy "Admins can manage restaurant settlements"
-on public.restaurant_settlements
-for all
-to authenticated
-using (public.is_admin_user())
-with check (public.is_admin_user());
-
-drop policy if exists "Admins can manage rider settlements"
-on public.rider_settlements;
-
-create policy "Admins can manage rider settlements"
-on public.rider_settlements
-for all
-to authenticated
-using (public.is_admin_user())
-with check (public.is_admin_user());
-
-drop policy if exists "Admins can manage riders"
-on public.riders;
-
-create policy "Admins can manage riders"
-on public.riders
-for all
-to authenticated
-using (public.is_admin_user())
-with check (public.is_admin_user());
-
+    DROP POLICY IF EXISTS "Riders and admins can view dispatch queue"
+      ON public.dispatch_queue;
+    CREATE POLICY "Riders and admins can view dispatch queue"
+      ON public.dispatch_queue
+      FOR SELECT
+      TO authenticated
+      USING (
+        public.is_admin_user()
+        OR EXISTS (
+          SELECT 1
+          FROM public.user_profiles
+          WHERE id = auth.uid()
+            AND role = 'rider'
+        )
+      );
+  END IF;
+END;
+$optional_rls$;
