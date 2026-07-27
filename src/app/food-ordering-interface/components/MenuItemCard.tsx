@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Icon from '@/components/ui/AppIcon';
 import AppImage from '@/components/ui/AppImage';
 
@@ -30,18 +30,11 @@ interface MenuItemCardProps {
 
 const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) => {
 
-  const [quantity, setQuantity] = useState(cartQuantity);
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>(
     item.variants?.[0]?.id
   );
   const [showVariants, setShowVariants] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-
-  /* ================= SYNC CART ================= */
-
-  useEffect(() => {
-    setQuantity(cartQuantity);
-  }, [cartQuantity]);
 
   /* ================= PRICE ================= */
 
@@ -60,9 +53,7 @@ const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) =>
 
   const handleAdd = () => {
 
-    const newQuantity = quantity + 1;
-
-    setQuantity(newQuantity);
+    const newQuantity = cartQuantity + 1;
 
     onAddToCart(
       item.id,
@@ -79,11 +70,9 @@ const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) =>
 
   const handleRemove = () => {
 
-    const newQuantity = quantity - 1;
+    const newQuantity = cartQuantity - 1;
 
     if (newQuantity < 0) return;
-
-    setQuantity(newQuantity);
 
     onAddToCart(
       item.id,
@@ -224,7 +213,7 @@ const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) =>
 
           {/* ADD BUTTON */}
 
-          {quantity === 0 ? (
+          {cartQuantity === 0 ? (
 
             <button
               onClick={handleAdd}
@@ -247,7 +236,7 @@ const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) =>
               </button>
 
               <span className="font-data text-sm font-bold text-white min-w-[24px] text-center">
-                {quantity}
+                {cartQuantity}
               </span>
 
               <button

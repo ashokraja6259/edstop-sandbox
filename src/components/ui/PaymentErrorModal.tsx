@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Icon from '@/components/ui/AppIcon';
 
 export type PaymentMethod = 'razorpay' | 'wallet' | 'cod' | 'upi';
@@ -102,28 +102,35 @@ const PaymentErrorModal = ({
   const isWalletInsufficient = walletBalance < orderTotal;
 
   // Available alternative methods (exclude failed method if not wallet issue)
-  const alternativeMethods: PaymentMethod[] = (['razorpay', 'wallet', 'cod', 'upi'] as PaymentMethod[]).filter(
-    (m) => {
-      if (m === failedMethod && errorCode !== 'NETWORK_ERROR') return false;
-      if (m === 'wallet' && isWalletInsufficient) return false;
-      if (m === 'cod' && orderTotal > 800) return false;
-      return true;
-    }
+  const alternativeMethods = useMemo(
+    () =>
+      (['razorpay', 'wallet', 'cod', 'upi'] as PaymentMethod[]).filter((method) => {
+        if (method === failedMethod && errorCode !== 'NETWORK_ERROR') return false;
+        if (method === 'wallet' && isWalletInsufficient) return false;
+        if (method === 'cod' && orderTotal > 800) return false;
+        return true;
+      }),
+    [errorCode, failedMethod, isWalletInsufficient, orderTotal]
   );
 
   useEffect(() => {
-    if (!isOpen) {
-      setIsRetrying(false);
-      setCartRecovered(false);
-      setRetryCountdown(0);
-      setShowCartPreview(false);
-    } else {
+    const syncTimer = window.setTimeout(() => {
+      if (!isOpen) {
+        setIsRetrying(false);
+        setCartRecovered(false);
+        setRetryCountdown(0);
+        setShowCartPreview(false);
+        return;
+      }
+
       // Auto-select best alternative
       if (alternativeMethods.length > 0 && !alternativeMethods.includes(selectedMethod)) {
         setSelectedMethod(alternativeMethods[0]);
       }
-    }
-  }, [isOpen]);
+    }, 0);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [alternativeMethods, isOpen, selectedMethod]);
 
   useEffect(() => {
     if (retryCountdown > 0) {

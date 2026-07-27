@@ -92,9 +92,8 @@ export function useDarkStoreRealtime(
     if (!userId) return;
 
     let cancelled = false;
-    setIsLoadingDelivery(true);
-
     const fetchActiveOrder = async () => {
+      setIsLoadingDelivery(true);
       try {
         let query = supabase
           .from('orders')

@@ -118,9 +118,9 @@ async function updateMenuItem(formData: FormData) {
 }
 
 type VendorMenuPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     restaurantId?: string;
-  };
+  }>;
 };
 
 export default async function VendorMenuPage({
@@ -129,7 +129,7 @@ export default async function VendorMenuPage({
   const { user, role } = await requireRole('vendor');
   const supabase = await createClient();
 
-  const selectedRestaurantId = searchParams?.restaurantId || '';
+  const selectedRestaurantId = (await searchParams)?.restaurantId || '';
 
   const { data: restaurantRows } =
     role === 'admin'

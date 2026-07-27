@@ -71,9 +71,9 @@ async function advanceOrderStatus(formData: FormData) {
 }
 
 type VendorOrdersPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     restaurantId?: string;
-  };
+  }>;
 };
 
 type OrderRow = {
@@ -115,7 +115,7 @@ export default async function VendorOrdersPage({
   const { user, role } = await requireRole('vendor');
   const supabase = await createClient();
 
-  const selectedRestaurantId = searchParams?.restaurantId || '';
+  const selectedRestaurantId = (await searchParams)?.restaurantId || '';
 
   const { data: restaurantRows } =
     role === 'admin'

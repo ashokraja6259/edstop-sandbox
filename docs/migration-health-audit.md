@@ -45,7 +45,7 @@ flowchart TD
 
 | Timestamp | Objects and actions | Dependencies and health |
 |---|---|---|
-| `20260224172800` | Drops/recreates `user_role`; creates `user_profiles`, role index, `handle_new_user()`, `get_user_role(uuid)`, auth trigger, owner profile policy; contains optional mock-user block | Requires managed `auth.users`. Root repository migration. Mock block catches missing `gen_salt`; authentication cleanup is outside this audit. |
+| `20260224172800` | Drops/recreates `user_role`; creates `user_profiles`, role index, `handle_new_user()`, `get_user_role(uuid)`, auth trigger, owner profile policy; production mock-user creation was removed by the subsequent security hardening | Requires managed `auth.users`. Root repository migration. Public signup is authoritatively hardened by `20260727000100`. |
 | `20260224173600` | Drops/recreates order/transaction enums; creates `wallets`, `student_profiles`, `orders`, `transactions`; indexes; wallet/update trigger functions and six triggers; RLS policies; mock business data block | Requires `user_profiles`. All referenced repository objects exist in order. |
 | `20260225155400` | Creates `ai_usage`, indexes, update function/trigger, owner RLS policy | Requires `user_profiles`. Healthy. |
 | `20260225162000` | Creates `error_logs`, indexes, insert/read policies | Requires `user_profiles`. Healthy. |
@@ -127,15 +127,16 @@ Mandatory-object failures are intentionally not ignored.
 
 ## Remaining risk
 
-`20260224172800` contains an authentication mock-user block that catches and
-logs a missing `gen_salt` function on a clean hosted project. It does not abort
-the migration chain, but it is not production-safe seed behavior. Authentication
-was explicitly excluded from this migration-health change and requires a
-separate authorized repair.
+The original audit detected predictable authentication mock users in
+`20260224172800`. Their creation was subsequently removed, and
+`20260727000100` makes student-only public signup authoritative for clean and
+existing databases. Historical candidates are reported by the read-only audit
+under `supabase/admin`; cleanup remains a separate explicit administrator step.
 
-`supabase db lint --linked --level warning` reports `42P01` inside
-`create_order_atomic` for its session-local `tmp_checkout_items` table. The
-function creates that temporary table immediately before using it, but the
-static PL/pgSQL checker cannot resolve the runtime temporary relation. Checkout
-business logic was explicitly excluded from this change, so the function was
-not modified.
+The original audit also detected `42P01` around the runtime-created
+`tmp_checkout_items` relation in `create_order_atomic`. Runtime testing showed
+that two distinct calls in one transaction collided. JSONB normalization
+replaced the temporary table for clean installs, and
+`20260727000200_replace_create_order_atomic_jsonb.sql` is the authoritative
+additive delivery mechanism for databases that already recorded the historical
+checkout migration.

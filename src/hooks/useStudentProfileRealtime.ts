@@ -49,7 +49,7 @@ export function useStudentProfileRealtime(
   terminateSession: (sessionId: string) => void;
   toggle2FA: (enabled: boolean) => void;
 } {
-  const toast = useToast();
+  const { showToast } = useToast();
   const profileChannelRef = useRef<RealtimeChannel | null>(null);
   const prevUpdatedAtRef = useRef<string | null>(null);
 
@@ -63,10 +63,7 @@ export function useStudentProfileRealtime(
   /* ───────── INITIAL FETCH ───────── */
 
   useEffect(() => {
-    if (!userId) {
-      setIsLoading(false);
-      return;
-    }
+    if (!userId) return;
 
     let cancelled = false;
 
@@ -142,7 +139,7 @@ export function useStudentProfileRealtime(
             setPasswordLastChanged(row.updated_at);
             setPasswordChangeCount(c => c + 1);
 
-            toast.showToast(
+            showToast(
               'warning',
               '🔐 Account security updated. If this wasn\'t you, terminate other sessions.'
             );
@@ -161,27 +158,27 @@ export function useStudentProfileRealtime(
       supabase.removeChannel(channel);
       setIsLive(false);
     };
-  }, [userId]);
+  }, [showToast, userId]);
 
   /* ───────── TERMINATE SESSION ───────── */
 
   const terminateSession = useCallback((sessionId: string) => {
     setActiveSessions(prev => prev.filter(s => s.id !== sessionId));
-    toast.showToast('success', '🔒 Session terminated.');
-  }, []);
+    showToast('success', '🔒 Session terminated.');
+  }, [showToast]);
 
   /* ───────── TOGGLE 2FA ───────── */
 
   const toggle2FA = useCallback((enabled: boolean) => {
     setTwoFAEnabled(enabled);
 
-    toast.showToast(
+    showToast(
       enabled ? 'success' : 'warning',
       enabled
         ? '🛡️ Two-Factor Authentication enabled.'
         : '⚠️ Two-Factor Authentication disabled.'
     );
-  }, []);
+  }, [showToast]);
 
   return {
     twoFAEnabled,
@@ -189,7 +186,7 @@ export function useStudentProfileRealtime(
     passwordLastChanged,
     passwordChangeCount,
     isLive,
-    isLoading,
+    isLoading: Boolean(userId) && isLoading,
     terminateSession,
     toggle2FA,
   };

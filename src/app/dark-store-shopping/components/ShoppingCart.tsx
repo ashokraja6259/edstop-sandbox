@@ -4,7 +4,6 @@
 
 import { useState } from 'react';
 import AppImage from '@/components/ui/AppImage';
-import { supabase } from '@/lib/supabaseClient'; // ✅ singleton
 import { useIsClient } from '@/hooks/useIsClient';
 
 interface CartItem {
@@ -31,7 +30,6 @@ const MAX_QUANTITY = 10;
 
 const ShoppingCart = ({
   items,
-  walletBalance,
   onUpdateQuantity,
   onRemoveItem,
   onCheckout,
@@ -43,71 +41,14 @@ const ShoppingCart = ({
   const [quantityErrors, setQuantityErrors] = useState<Record<string, string>>({});
   const [checkoutError, setCheckoutError] = useState('');
 
-  const [promoInput, setPromoInput] = useState('');
-  const [appliedPromo, setAppliedPromo] = useState<{
-    code: string;
-    discount: number;
-    description: string;
-  } | null>(null);
-  const [promoError, setPromoError] = useState('');
-  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
-
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
 
-  const cashback = subtotal * 0.05;
   const deliveryFee = subtotal >= 99 ? 0 : 10;
-  const promoDiscount = appliedPromo?.discount ?? 0;
-  const total = subtotal + deliveryFee - promoDiscount;
-  const maxWalletRedemption = total * 0.3;
+  const total = subtotal + deliveryFee;
   const meetsMinimum = subtotal >= 99;
-
-  /* ================= PROMO ================= */
-
-  const handleApplyPromo = async () => {
-    const code = promoInput.trim();
-    if (!code) {
-      setPromoError('Please enter a promo code.');
-      return;
-    }
-
-    setIsValidatingPromo(true);
-    setPromoError('');
-
-    try {
-      const { data, error } = await supabase.rpc('validate_promo_code', {
-        p_code: code,
-        p_order_amount: subtotal + deliveryFee,
-        p_order_type: 'store',
-      });
-
-      if (error) throw error;
-
-      if (data?.valid) {
-        setAppliedPromo({
-          code: code.toUpperCase(),
-          discount: data.discount,
-          description: data.description,
-        });
-        setPromoInput('');
-        setPromoError('');
-      } else {
-        setPromoError(data?.error ?? 'Invalid promo code.');
-      }
-    } catch {
-      setPromoError('Failed to validate promo code. Please try again.');
-    } finally {
-      setIsValidatingPromo(false);
-    }
-  };
-
-  const handleRemovePromo = () => {
-    setAppliedPromo(null);
-    setPromoError('');
-    setPromoInput('');
-  };
 
   /* ================= QUANTITY ================= */
 
@@ -187,7 +128,7 @@ const ShoppingCart = ({
     }
 
     setCheckoutError('');
-    onCheckout(appliedPromo?.code, appliedPromo?.discount);
+    onCheckout();
   };
 
   if (!isHydrated) return null;
@@ -276,12 +217,12 @@ const ShoppingCart = ({
             <div className="border-t p-6 space-y-4">
               <div>Subtotal: ₹{subtotal.toFixed(2)}</div>
               <div>Delivery: {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}</div>
-              {appliedPromo && (
-                <div>Promo: -₹{promoDiscount.toFixed(2)}</div>
-              )}
               <div className="font-bold text-lg">
                 Total: ₹{total.toFixed(2)}
               </div>
+              {checkoutError && (
+                <div className="text-red-500 text-sm">{checkoutError}</div>
+              )}
 
               <button
                 onClick={handleCheckout}

@@ -26,6 +26,11 @@ export interface RiderOrder {
   pickupTime?: string;
 }
 
+export type AvailableRiderOrder = RiderOrder & { status: 'available' };
+export type AssignedRiderOrder = RiderOrder & {
+  status: 'pending-pickup' | 'in-transit' | 'delivered';
+};
+
 export interface RiderBatchOrder {
   orderId: string;
   orderNumber: string;
@@ -54,9 +59,9 @@ export interface RiderStats {
 }
 
 export interface RiderRealtimeData {
-  availableOrders: RiderOrder[];
-  activeOrders: RiderOrder[];
-  completedOrders: RiderOrder[];
+  availableOrders: AvailableRiderOrder[];
+  activeOrders: AssignedRiderOrder[];
+  completedOrders: AssignedRiderOrder[];
   batchDeliveries: RiderBatchGroup[];
   riderStats: RiderStats;
   isLoading: boolean;
@@ -166,6 +171,14 @@ const dbToRider = (order: DBOrder): RiderOrder => {
   };
 };
 
+const isAvailableRiderOrder = (
+  order: RiderOrder
+): order is AvailableRiderOrder => order.status === 'available';
+
+const isAssignedRiderOrder = (
+  order: RiderOrder
+): order is AssignedRiderOrder => order.status !== 'available';
+
 const calculateStats = (completedOrders: RiderOrder[]): RiderStats => {
   const completedCount = completedOrders.length;
   const base = completedCount * BASE_PAY_PER_DELIVERY;
@@ -187,9 +200,9 @@ export function useRiderRealtime(
   const toast = useToast();
   const channelsRef = useRef<RealtimeChannel[]>([]);
 
-  const [availableOrders, setAvailableOrders] = useState<RiderOrder[]>([]);
-  const [activeOrders, setActiveOrders] = useState<RiderOrder[]>([]);
-  const [completedOrders, setCompletedOrders] = useState<RiderOrder[]>([]);
+  const [availableOrders, setAvailableOrders] = useState<AvailableRiderOrder[]>([]);
+  const [activeOrders, setActiveOrders] = useState<AssignedRiderOrder[]>([]);
+  const [completedOrders, setCompletedOrders] = useState<AssignedRiderOrder[]>([]);
   const [batchDeliveries] = useState<RiderBatchGroup[]>([]);
   const [riderStats, setRiderStats] = useState<RiderStats>({
     dailyDeliveries: 0,
@@ -203,7 +216,6 @@ export function useRiderRealtime(
 
   useEffect(() => {
     if (!riderId) {
-      setIsLoading(false);
       return;
     }
 
@@ -238,9 +250,15 @@ export function useRiderRealtime(
 
       if (cancelled) return;
 
-      const mappedAvailable = ((availableData || []) as DBOrder[]).map(dbToRider);
-      const mappedActive = ((activeData || []) as DBOrder[]).map(dbToRider);
-      const mappedCompleted = ((completedData || []) as DBOrder[]).map(dbToRider);
+      const mappedAvailable = ((availableData || []) as DBOrder[])
+        .map(dbToRider)
+        .filter(isAvailableRiderOrder);
+      const mappedActive = ((activeData || []) as DBOrder[])
+        .map(dbToRider)
+        .filter(isAssignedRiderOrder);
+      const mappedCompleted = ((completedData || []) as DBOrder[])
+        .map(dbToRider)
+        .filter(isAssignedRiderOrder);
 
       setAvailableOrders(mappedAvailable);
       setActiveOrders(mappedActive);
@@ -283,7 +301,9 @@ export function useRiderRealtime(
             );
 
             if (isAvailableStatus(order.status) && !order.rider_id) {
-              return [mappedOrder, ...withoutCurrent];
+              return isAvailableRiderOrder(mappedOrder)
+                ? [mappedOrder, ...withoutCurrent]
+                : withoutCurrent;
             }
 
             return withoutCurrent;
@@ -296,7 +316,8 @@ export function useRiderRealtime(
 
             if (
               order.rider_id === riderId &&
-              isAssignedActiveStatus(order.status)
+              isAssignedActiveStatus(order.status) &&
+              isAssignedRiderOrder(mappedOrder)
             ) {
               return [mappedOrder, ...withoutCurrent];
             }
@@ -309,7 +330,11 @@ export function useRiderRealtime(
               (row) => row.orderId !== order.id
             );
 
-            if (order.rider_id === riderId && order.status === 'delivered') {
+            if (
+              order.rider_id === riderId &&
+              order.status === 'delivered' &&
+              isAssignedRiderOrder(mappedOrder)
+            ) {
               const updated = [mappedOrder, ...withoutCurrent];
               setRiderStats(calculateStats(updated));
               return updated;
