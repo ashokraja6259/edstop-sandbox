@@ -581,10 +581,21 @@ SELECT pg_temp.assert_result(
     WHERE n.nspname = 'public'
       AND p.proname IN (
         'get_user_role', 'admin_assign_user_role', 'is_admin_user',
-        'handle_new_user', 'create_wallet_for_user', 'update_wallet_balance'
+        'handle_new_user', 'create_wallet_for_user', 'update_wallet_balance',
+        'create_order_atomic'
       )
       AND privilege.grantee = 0
       AND privilege.privilege_type = 'EXECUTE'
+  )
+  AND NOT has_function_privilege(
+    'anon',
+    'public.create_order_atomic(uuid,uuid,text,jsonb,numeric,text,text)',
+    'EXECUTE'
+  )
+  AND has_function_privilege(
+    'authenticated',
+    'public.create_order_atomic(uuid,uuid,text,jsonb,numeric,text,text)',
+    'EXECUTE'
   )
 );
 
