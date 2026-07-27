@@ -1,4 +1,28 @@
 -- READ ONLY. Run before deciding whether any historical identity is disposable.
+-- Fail before the report query with the exact missing relation, rather than
+-- returning incomplete activity counts.
+DO $required_relations$
+DECLARE
+  v_relation text;
+BEGIN
+  FOREACH v_relation IN ARRAY ARRAY[
+    'auth.users',
+    'public.user_profiles',
+    'public.wallets',
+    'public.transactions',
+    'public.wallet_transactions',
+    'public.orders',
+    'public.student_profiles',
+    'public.audit_logs'
+  ]
+  LOOP
+    IF to_regclass(v_relation) IS NULL THEN
+      RAISE EXCEPTION 'historical seed audit requires missing relation %', v_relation;
+    END IF;
+  END LOOP;
+END;
+$required_relations$;
+
 SELECT
   u.id,
   u.email,

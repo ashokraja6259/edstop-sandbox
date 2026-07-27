@@ -1,6 +1,15 @@
 -- Authoritative additive hardening for databases where earlier vulnerable migrations ran.
 -- This migration intentionally does not delete users or business/audit history.
 
+DO $required_objects$
+BEGIN
+  IF to_regclass('public.user_profiles') IS NULL THEN
+    RAISE EXCEPTION
+      'required relation public.user_profiles is missing; role hardening cannot proceed';
+  END IF;
+END;
+$required_objects$;
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -122,49 +131,105 @@ $function$;
 REVOKE ALL ON FUNCTION public.is_admin_user() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_admin_user() TO authenticated;
 
-ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "users_manage_own_wallets" ON public.wallets;
-DROP POLICY IF EXISTS "users_select_own_wallets" ON public.wallets;
-CREATE POLICY "users_select_own_wallets"
-ON public.wallets FOR SELECT TO authenticated
-USING (user_id = (SELECT auth.uid()));
-REVOKE ALL ON TABLE public.wallets FROM anon, authenticated;
-GRANT SELECT ON TABLE public.wallets TO authenticated;
+-- Older or partially migrated environments may not contain every wallet object.
+-- Harden each object if present without allowing one missing object to abort the
+-- profile/role security boundary.
+DO $wallets$
+BEGIN
+  IF to_regclass('public.wallets') IS NULL THEN
+    RAISE WARNING 'optional relation public.wallets is missing; wallet hardening skipped';
+  ELSE
+    EXECUTE 'ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "users_manage_own_wallets" ON public.wallets';
+    EXECUTE 'DROP POLICY IF EXISTS "users_select_own_wallets" ON public.wallets';
+    EXECUTE 'CREATE POLICY "users_select_own_wallets"
+      ON public.wallets FOR SELECT TO authenticated
+      USING (user_id = (SELECT auth.uid()))';
+    EXECUTE 'REVOKE ALL ON TABLE public.wallets FROM anon, authenticated';
+    EXECUTE 'GRANT SELECT ON TABLE public.wallets TO authenticated';
+    EXECUTE 'GRANT ALL ON TABLE public.wallets TO service_role';
+  END IF;
+END;
+$wallets$;
 
-ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "users_view_own_transactions" ON public.transactions;
-DROP POLICY IF EXISTS "users_create_own_transactions" ON public.transactions;
-DROP POLICY IF EXISTS "users_select_own_transactions" ON public.transactions;
-CREATE POLICY "users_select_own_transactions"
-ON public.transactions FOR SELECT TO authenticated
-USING (user_id = (SELECT auth.uid()));
-REVOKE ALL ON TABLE public.transactions FROM anon, authenticated;
-GRANT SELECT ON TABLE public.transactions TO authenticated;
+DO $transactions$
+BEGIN
+  IF to_regclass('public.transactions') IS NULL THEN
+    RAISE WARNING 'optional relation public.transactions is missing; transaction ledger hardening skipped';
+  ELSE
+    EXECUTE 'ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "users_view_own_transactions" ON public.transactions';
+    EXECUTE 'DROP POLICY IF EXISTS "users_create_own_transactions" ON public.transactions';
+    EXECUTE 'DROP POLICY IF EXISTS "users_select_own_transactions" ON public.transactions';
+    EXECUTE 'CREATE POLICY "users_select_own_transactions"
+      ON public.transactions FOR SELECT TO authenticated
+      USING (user_id = (SELECT auth.uid()))';
+    EXECUTE 'REVOKE ALL ON TABLE public.transactions FROM anon, authenticated';
+    EXECUTE 'GRANT SELECT ON TABLE public.transactions TO authenticated';
+    EXECUTE 'GRANT ALL ON TABLE public.transactions TO service_role';
+  END IF;
+END;
+$transactions$;
 
-ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "users_select_own_wallet_transactions" ON public.wallet_transactions;
-CREATE POLICY "users_select_own_wallet_transactions"
-ON public.wallet_transactions FOR SELECT TO authenticated
-USING (user_id = (SELECT auth.uid()));
-REVOKE ALL ON TABLE public.wallet_transactions FROM anon, authenticated;
-GRANT SELECT ON TABLE public.wallet_transactions TO authenticated;
+DO $wallet_transactions$
+BEGIN
+  IF to_regclass('public.wallet_transactions') IS NULL THEN
+    RAISE WARNING 'optional relation public.wallet_transactions is missing; wallet ledger hardening skipped';
+  ELSE
+    EXECUTE 'ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "users_select_own_wallet_transactions" ON public.wallet_transactions';
+    EXECUTE 'CREATE POLICY "users_select_own_wallet_transactions"
+      ON public.wallet_transactions FOR SELECT TO authenticated
+      USING (user_id = (SELECT auth.uid()))';
+    EXECUTE 'REVOKE ALL ON TABLE public.wallet_transactions FROM anon, authenticated';
+    EXECUTE 'GRANT SELECT ON TABLE public.wallet_transactions TO authenticated';
+    EXECUTE 'GRANT ALL ON TABLE public.wallet_transactions TO service_role';
+  END IF;
+END;
+$wallet_transactions$;
 
 -- service_role remains a trusted backend path and bypasses RLS by design.
 GRANT ALL ON TABLE public.user_profiles TO service_role;
-GRANT ALL ON TABLE public.wallets TO service_role;
-GRANT ALL ON TABLE public.transactions TO service_role;
-GRANT ALL ON TABLE public.wallet_transactions TO service_role;
 
 -- Trigger-only definers have fixed resolution and no callable API surface.
-ALTER FUNCTION public.create_wallet_for_user() SET search_path = pg_catalog;
-ALTER FUNCTION public.update_wallet_balance() SET search_path = pg_catalog;
-REVOKE ALL ON FUNCTION public.create_wallet_for_user() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.update_wallet_balance() FROM PUBLIC, anon, authenticated;
+DO $wallet_functions$
+BEGIN
+  IF to_regprocedure('public.create_wallet_for_user()') IS NULL THEN
+    RAISE WARNING 'optional function public.create_wallet_for_user() is missing; hardening skipped';
+  ELSE
+    EXECUTE 'ALTER FUNCTION public.create_wallet_for_user() SET search_path = pg_catalog';
+    EXECUTE 'REVOKE ALL ON FUNCTION public.create_wallet_for_user()
+      FROM PUBLIC, anon, authenticated';
+  END IF;
+
+  IF to_regprocedure('public.update_wallet_balance()') IS NULL THEN
+    RAISE WARNING 'optional function public.update_wallet_balance() is missing; hardening skipped';
+  ELSE
+    EXECUTE 'ALTER FUNCTION public.update_wallet_balance() SET search_path = pg_catalog';
+    EXECUTE 'REVOKE ALL ON FUNCTION public.update_wallet_balance()
+      FROM PUBLIC, anon, authenticated';
+  END IF;
+END;
+$wallet_functions$;
 
 -- Checkout verifies auth.uid() equals p_user_id and uses schema-qualified relations.
-ALTER FUNCTION public.create_order_atomic(uuid, uuid, text, jsonb, numeric, text, text)
-  SET search_path = pg_catalog;
-REVOKE ALL ON FUNCTION public.create_order_atomic(uuid, uuid, text, jsonb, numeric, text, text)
-  FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.create_order_atomic(uuid, uuid, text, jsonb, numeric, text, text)
-  TO authenticated;
+DO $checkout_function$
+BEGIN
+  IF to_regprocedure(
+    'public.create_order_atomic(uuid,uuid,text,jsonb,numeric,text,text)'
+  ) IS NULL THEN
+    RAISE WARNING
+      'optional function public.create_order_atomic(uuid,uuid,text,jsonb,numeric,text,text) is missing; checkout grant hardening skipped';
+  ELSE
+    EXECUTE 'ALTER FUNCTION public.create_order_atomic(
+      uuid, uuid, text, jsonb, numeric, text, text
+    ) SET search_path = pg_catalog';
+    EXECUTE 'REVOKE ALL ON FUNCTION public.create_order_atomic(
+      uuid, uuid, text, jsonb, numeric, text, text
+    ) FROM PUBLIC, anon';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.create_order_atomic(
+      uuid, uuid, text, jsonb, numeric, text, text
+    ) TO authenticated';
+  END IF;
+END;
+$checkout_function$;

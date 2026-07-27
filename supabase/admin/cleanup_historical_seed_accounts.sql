@@ -5,7 +5,24 @@ BEGIN;
 DO $cleanup$
 DECLARE
   v_confirmation text := current_setting('edstop.confirm_seed_cleanup', true);
+  v_relation text;
 BEGIN
+  FOREACH v_relation IN ARRAY ARRAY[
+    'auth.users',
+    'public.user_profiles',
+    'public.wallets',
+    'public.transactions',
+    'public.wallet_transactions',
+    'public.orders',
+    'public.student_profiles',
+    'public.audit_logs'
+  ]
+  LOOP
+    IF to_regclass(v_relation) IS NULL THEN
+      RAISE EXCEPTION 'historical seed cleanup requires missing relation %', v_relation;
+    END IF;
+  END LOOP;
+
   IF v_confirmation <> 'DELETE REVIEWED EMPTY HISTORICAL SEEDS' THEN
     RAISE EXCEPTION
       'cleanup not confirmed; SET LOCAL edstop.confirm_seed_cleanup to the documented phrase';
