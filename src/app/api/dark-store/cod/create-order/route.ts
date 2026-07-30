@@ -110,13 +110,6 @@ export async function POST(req: Request) {
       );
     }
 
-    if (createdOrder.id && !createdOrder.idempotentReplay) {
-      console.info('Dark-store COD order created', {
-        orderId: createdOrder.id,
-        userId: user.id,
-      });
-    }
-
     return NextResponse.json({
       success: true,
       orderId: createdOrder.id,
