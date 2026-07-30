@@ -94,6 +94,51 @@ test('dark-store COD checkout is idempotent and uses one atomic RPC', async () =
   );
 });
 
+test('operational order RPCs match client calls and enforce scoped transitions', async () => {
+  const [admin, vendor, rider, migration, dispatchMigration] =
+    await Promise.all([
+      read('src/app/admin/operations/page.tsx'),
+      read('src/app/vendor/orders/page.tsx'),
+      read(
+        'src/app/rider-dashboard/components/RiderDashboardInteractive.tsx'
+      ),
+      read(
+        'supabase/migrations/20260731000100_add_operational_order_rpcs.sql'
+      ),
+      read(
+        'supabase/migrations/20260731000200_require_rider_for_admin_dispatch.sql'
+      ),
+    ]);
+
+  assert.match(admin, /rpc\('admin_update_order_status',\s*\{\s*p_order_id:/);
+  assert.match(vendor, /rpc\('vendor_update_order_status',\s*\{\s*p_order_id:/);
+  assert.match(rider, /rpc\('rider_claim_order',\s*\{\s*p_order_id:/);
+  assert.match(rider, /rpc\('rider_mark_delivered',\s*\{\s*p_order_id:/);
+
+  for (const functionName of [
+    'admin_update_order_status',
+    'vendor_update_order_status',
+    'rider_claim_order',
+    'rider_mark_delivered',
+  ]) {
+    assert.match(
+      migration,
+      new RegExp(`CREATE OR REPLACE FUNCTION public\\.${functionName}`)
+    );
+  }
+
+  assert.match(migration, /FOR UPDATE;/);
+  assert.match(migration, /order is outside vendor scope/);
+  assert.match(migration, /order is not assigned to this rider/);
+  assert.match(migration, /idempotent_replay/);
+  assert.match(migration, /INSERT INTO public\.order_events/);
+  assert.doesNotMatch(migration, /public\.wallets/);
+  assert.doesNotMatch(migration, /public\.transactions/);
+  assert.doesNotMatch(migration, /public\.payment_intents/);
+  assert.match(dispatchMigration, /rider assignment required/);
+  assert.match(dispatchMigration, /v_rider_id IS NULL/);
+});
+
 test('environment template contains every documented production variable', async () => {
   const env = await read('.env.example');
 
