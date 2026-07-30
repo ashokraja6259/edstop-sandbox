@@ -253,14 +253,12 @@ export default function StudentProfilePage() {
     const updatePayload: {
       hall: string;
       room_number: string;
-      updated_at: string;
       roll_number?: string;
       department?: string;
       year_of_study?: string;
     } = {
       hall: personalInfo.hall.trim(),
       room_number: personalInfo.roomNumber.trim(),
-      updated_at: new Date().toISOString(),
     };
 
     if (!isRollNumberLocked) {

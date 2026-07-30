@@ -6,6 +6,7 @@ import { calculateDarkStorePricing, type DarkStoreCartInputItem } from '@/lib/da
 interface CreateDarkStoreCodOrderBody {
   items: DarkStoreCartInputItem[];
   promoCode?: string | null;
+  idempotencyKey?: string | null;
 }
 
 export async function POST(req: Request) {
@@ -22,7 +23,18 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json()) as CreateDarkStoreCodOrderBody;
-    const { items, promoCode = null } = body;
+    const { items, promoCode = null, idempotencyKey } = body;
+
+    if (
+      typeof idempotencyKey !== 'string'
+      || idempotencyKey.trim().length === 0
+      || idempotencyKey.length > 128
+    ) {
+      return NextResponse.json(
+        { error: 'A valid checkout idempotency key is required' },
+        { status: 400 }
+      );
+    }
 
     const pricing = calculateDarkStorePricing(items);
 
@@ -49,98 +61,67 @@ export async function POST(req: Request) {
     }
 
     const finalAmount = Math.max(0, pricing.totalBeforeDiscount - discountAmount);
-    const orderNumber = `DS${Date.now().toString().slice(-8)}`;
-
     const checkoutItems = pricing.normalizedItems.map((item) => ({
       id: item.id,
       name: item.name,
       quantity: item.quantity,
       price: item.price,
+      totalPrice: item.totalPrice,
     }));
 
     const adminSupabase = createAdminClient();
 
-    const { data: createdOrder, error: orderInsertError } = await adminSupabase
-      .from('orders')
-      .insert({
-        user_id: user.id,
-        order_number: orderNumber,
-        order_type: 'store',
-        status: 'pending',
-        total_amount: pricing.totalBeforeDiscount,
-        delivery_fee: pricing.deliveryFee,
-        tax_amount: 0,
-        discount_amount: discountAmount,
-        promo_code: appliedPromoCode,
-        promo_discount: discountAmount,
-        final_amount: finalAmount,
-        payment_method: 'cod',
-        payment_id: null,
-        wallet_used: 0,
-        items: checkoutItems,
-        notes: null,
-      })
-      .select('id, order_number')
-      .single();
+    const { data: rpcResult, error: orderError } = await adminSupabase.rpc(
+      'create_dark_store_cod_order',
+      {
+        p_user_id: user.id,
+        p_items: checkoutItems,
+        p_total_amount: pricing.totalBeforeDiscount,
+        p_delivery_fee: pricing.deliveryFee,
+        p_discount_amount: discountAmount,
+        p_promo_code: appliedPromoCode,
+        p_idempotency_key: idempotencyKey.trim(),
+      }
+    );
 
-    if (orderInsertError || !createdOrder) {
-      console.error('Dark-store COD order insert failed:', JSON.stringify(orderInsertError, null, 2));
+    if (
+      orderError
+      || typeof rpcResult?.order_id !== 'string'
+      || typeof rpcResult?.order_number !== 'string'
+    ) {
+      console.error('Dark-store COD atomic checkout failed:', orderError);
       return NextResponse.json(
-        {
-          error: 'Failed to create dark-store order',
-          details: orderInsertError?.message,
-          code: orderInsertError?.code,
-          hint: orderInsertError?.hint,
-        },
+        { error: 'Failed to create dark-store order' },
         { status: 500 }
       );
     }
 
-    const orderItemsPayload = pricing.normalizedItems.map((item) => ({
-      order_id: createdOrder.id,
-      menu_item_id: null,
-      item_name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      total_price: item.totalPrice,
-    }));
+    const createdOrder = {
+      id: rpcResult.order_id,
+      order_number: rpcResult.order_number,
+      idempotentReplay: Boolean(rpcResult.idempotent_replay),
+    };
 
-    const { error: orderItemsError } = await adminSupabase
-      .from('order_items')
-      .insert(orderItemsPayload);
-
-    if (orderItemsError) {
-      console.error('Dark-store COD order items insert failed:', JSON.stringify(orderItemsError, null, 2));
+    if (createdOrder.id.length === 0 || createdOrder.order_number.length === 0) {
+      console.error('Dark-store COD atomic checkout returned an invalid result');
       return NextResponse.json(
-        {
-          error: 'Failed to save dark-store order items',
-          details: orderItemsError.message,
-          code: orderItemsError.code,
-          hint: orderItemsError.hint,
-        },
+        { error: 'Failed to create dark-store order' },
         { status: 500 }
       );
     }
 
-    const { error: orderEventError } = await adminSupabase.from('order_events').insert({
-      order_id: createdOrder.id,
-      event_type: 'ORDER_CREATED',
-      old_status: null,
-      new_status: 'pending',
-      metadata: {
-        payment_method: 'cod',
-        order_type: 'store',
-      },
-    });
-
-    if (orderEventError) {
-      console.error('Dark-store COD order event insert failed:', JSON.stringify(orderEventError, null, 2));
+    if (createdOrder.id && !createdOrder.idempotentReplay) {
+      console.info('Dark-store COD order created', {
+        orderId: createdOrder.id,
+        userId: user.id,
+      });
     }
 
     return NextResponse.json({
       success: true,
       orderId: createdOrder.id,
       orderNumber: createdOrder.order_number,
+      idempotentReplay: createdOrder.idempotentReplay,
       finalAmount,
       items: checkoutItems,
       promoCode: appliedPromoCode,

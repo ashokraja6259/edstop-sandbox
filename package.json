@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "test:launch": "node --test tests/launch-readiness.test.mjs",
     "test:payments": "node --test tests/razorpay-hardening.test.mjs",
     "test:refunds": "node --test tests/refund-http-replay.test.mjs",
     "reconcile:razorpay": "node scripts/reconcile-razorpay.mjs"

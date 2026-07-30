@@ -165,11 +165,24 @@ SELECT pg_temp.assert_result(
   (SELECT full_name = 'Allowed Name' FROM public.user_profiles
    WHERE id = '10000000-0000-0000-0000-000000000001')
 );
-UPDATE public.user_profiles SET avatar_url = 'https://example.invalid/avatar'
+UPDATE public.user_profiles SET
+  avatar_url = 'https://example.invalid/avatar',
+  roll_number = '24CS10001',
+  hall = 'Nehru Hall',
+  room_number = 'A-101',
+  department = 'Computer Science & Engineering',
+  year_of_study = '2nd Year'
 WHERE id = '10000000-0000-0000-0000-000000000001';
 SELECT pg_temp.assert_result(
-  4, 'student can update avatar_url',
-  (SELECT avatar_url = 'https://example.invalid/avatar' FROM public.user_profiles
+  4, 'student can update approved launch profile fields',
+  (SELECT
+     avatar_url = 'https://example.invalid/avatar'
+     AND roll_number = '24CS10001'
+     AND hall = 'Nehru Hall'
+     AND room_number = 'A-101'
+     AND department = 'Computer Science & Engineering'
+     AND year_of_study = '2nd Year'
+   FROM public.user_profiles
    WHERE id = '10000000-0000-0000-0000-000000000001')
 );
 SELECT pg_temp.expect_error(5, 'student cannot update role',
@@ -508,11 +521,22 @@ SELECT pg_temp.assert_result(
   has_table_privilege('authenticated', 'public.user_profiles', 'SELECT')
 );
 SELECT pg_temp.assert_result(
-  50, 'authenticated has UPDATE only on full_name and avatar_url',
+  50, 'authenticated can update approved profile fields only',
   has_column_privilege('authenticated', 'public.user_profiles', 'full_name', 'UPDATE')
   AND has_column_privilege('authenticated', 'public.user_profiles', 'avatar_url', 'UPDATE')
+  AND has_column_privilege('authenticated', 'public.user_profiles', 'roll_number', 'UPDATE')
+  AND has_column_privilege('authenticated', 'public.user_profiles', 'hall', 'UPDATE')
+  AND has_column_privilege('authenticated', 'public.user_profiles', 'room_number', 'UPDATE')
+  AND has_column_privilege('authenticated', 'public.user_profiles', 'department', 'UPDATE')
+  AND has_column_privilege('authenticated', 'public.user_profiles', 'year_of_study', 'UPDATE')
   AND NOT has_column_privilege('authenticated', 'public.user_profiles', 'role', 'UPDATE')
   AND NOT has_column_privilege('authenticated', 'public.user_profiles', 'email', 'UPDATE')
+  AND NOT has_column_privilege('authenticated', 'public.user_profiles', 'phone', 'UPDATE')
+  AND NOT has_column_privilege('authenticated', 'public.user_profiles', 'updated_at', 'UPDATE')
+  AND NOT has_column_privilege('authenticated', 'public.user_profiles', 'phone_verified', 'UPDATE')
+  AND NOT has_column_privilege(
+    'authenticated', 'public.user_profiles', 'campus_email_verified', 'UPDATE'
+  )
   AND NOT has_column_privilege(
     'authenticated', 'public.user_profiles', 'security_test_verified', 'UPDATE'
   )
