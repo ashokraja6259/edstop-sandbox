@@ -6,8 +6,6 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
-type AuthMode = 'email' | 'phone';
-
 const inputClassName =
   'w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/30 disabled:cursor-not-allowed disabled:opacity-60';
 
@@ -24,17 +22,12 @@ const features = [
 ];
 
 export default function LoginPage() {
-  const [authMode, setAuthMode] = useState<AuthMode>('email');
   const [isSignUp, setIsSignUp] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
 
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -50,8 +43,6 @@ export default function LoginPage() {
     loading: authLoading,
     resetPassword,
     resendVerificationEmail,
-    signInWithPhoneOtp,
-    verifyPhoneOtp,
   } = useAuth();
 
   useEffect(() => {
@@ -187,40 +178,6 @@ export default function LoginPage() {
     }
   };
 
-  const handlePhoneOtpSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
-    setSuccess('');
-
-    if (!phone.trim()) {
-      setError('Please enter your phone number.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      if (!otpSent) {
-        await signInWithPhoneOtp(phone.trim());
-        setOtpSent(true);
-        setSuccess('OTP sent to your phone number.');
-        return;
-      }
-
-      if (!otp.trim()) {
-        setError('Please enter the OTP.');
-        return;
-      }
-
-      await verifyPhoneOtp(phone.trim(), otp.trim());
-      window.location.assign('/login');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Phone OTP login failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <main className="min-h-screen overflow-hidden bg-slate-950 text-white">
       <div className="fixed inset-0 pointer-events-none">
@@ -300,39 +257,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-slate-950/40 p-1">
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('email');
-                setError('');
-                setSuccess('');
-              }}
-              className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${
-                authMode === 'email'
-                  ? 'bg-white text-slate-950'
-                  : 'text-white/60 hover:text-white'
-              }`}
-            >
-              Email
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAuthMode('phone');
-                setError('');
-                setSuccess('');
-              }}
-              className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${
-                authMode === 'phone'
-                  ? 'bg-white text-slate-950'
-                  : 'text-white/60 hover:text-white'
-              }`}
-            >
-              Phone OTP
-            </button>
-          </div>
-
           {error && (
             <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
               {error}
@@ -345,8 +269,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          {authMode === 'email' ? (
-            <form onSubmit={handleEmailSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleEmailSubmit} className="mt-6 space-y-4">
               {isSignUp && (
                 <input
                   type="text"
@@ -448,46 +371,9 @@ export default function LoginPage() {
                   </button>
                 </div>
               )}
-            </form>
-          ) : (
-            <form onSubmit={handlePhoneOtpSubmit} className="mt-6 space-y-4">
-              <input
-                type="tel"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                placeholder="Phone number with country code"
-                className={inputClassName}
-                disabled={loading}
-              />
+          </form>
 
-              {otpSent && (
-                <input
-                  type="text"
-                  value={otp}
-                  onChange={(event) => setOtp(event.target.value)}
-                  placeholder="Enter OTP"
-                  className={inputClassName}
-                  disabled={loading}
-                />
-              )}
-
-              <button
-                type="submit"
-                disabled={loading || authLoading}
-                className="w-full rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? 'Please wait...' : otpSent ? 'Verify OTP' : 'Send OTP'}
-              </button>
-
-              <p className="text-xs leading-5 text-white/45">
-                Phone OTP depends on Supabase SMS provider configuration. Use
-                email login if OTP is not enabled yet.
-              </p>
-            </form>
-          )}
-
-          {authMode === 'email' && (
-            <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-white/55">
+          <div className="mt-6 border-t border-white/10 pt-5 text-center text-sm text-white/55">
               {isSignUp ? 'Already have an account?' : 'New to EdStop?'}{' '}
               <button
                 type="button"
@@ -501,8 +387,7 @@ export default function LoginPage() {
               >
                 {isSignUp ? 'Sign in' : 'Create account'}
               </button>
-            </div>
-          )}
+          </div>
         </section>
       </div>
     </main>

@@ -11,6 +11,7 @@ type OrderRow = {
   final_amount: number | null;
   total_amount: number | null;
   payment_method: string | null;
+  restaurant_id: string | null;
   restaurant_name: string | null;
   created_at: string | null;
 };
@@ -65,7 +66,7 @@ export default async function DashboardShell({
     supabase
       .from('orders')
       .select(
-        'id, order_number, order_type, status, final_amount, total_amount, payment_method, restaurant_name, created_at'
+        'id, order_number, order_type, status, final_amount, total_amount, payment_method, restaurant_id, restaurant_name, created_at'
       )
       .gte('created_at', rangeStart.toISOString())
       .order('created_at', { ascending: false })
@@ -163,9 +164,15 @@ export default async function DashboardShell({
   }));
 
   const restaurantOrderMap = new Map<string, { name: string; orders: number; revenue: number }>();
+  const restaurantNames = new Map(
+    restaurantRows.map((restaurant) => [restaurant.id, restaurant.name])
+  );
 
   orderRows.forEach((order) => {
-    const name = order.restaurant_name || 'Unknown Restaurant';
+    const name =
+      (order.restaurant_id && restaurantNames.get(order.restaurant_id)) ||
+      order.restaurant_name ||
+      (order.order_type === 'store' ? 'Dark Store' : 'Unknown Restaurant');
     const current = restaurantOrderMap.get(name) || {
       name,
       orders: 0,

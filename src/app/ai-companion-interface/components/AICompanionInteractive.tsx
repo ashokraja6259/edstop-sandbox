@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAICompanionRealtime } from '@/hooks/useAICompanionRealtime';
 import { useIsClient } from '@/hooks/useIsClient';
 import { supabase } from '@/lib/supabaseClient'; // ✅ FIXED
+import { useWalletData } from '@/hooks/useWalletData';
 
 interface Message {
   id: string;
@@ -40,6 +41,7 @@ const AICompanionInteractive = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { user } = useAuth();
+  const { walletBalance } = useWalletData(user?.id);
 
   const { questionsUsed, questionsLimit, isPremium } =
     useAICompanionRealtime(user?.id, 3, false);
@@ -140,7 +142,7 @@ const AICompanionInteractive = () => {
       <header className="sticky top-0 z-40 glass-header">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <HeaderBrand showBackButton />
-          <WalletIndicator balance={1250.5} />
+          <WalletIndicator balance={walletBalance} />
         </div>
       </header>
 
