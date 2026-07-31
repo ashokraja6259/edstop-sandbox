@@ -311,6 +311,60 @@ SELECT pg_temp.record_operational_result(
   )
 );
 
+SELECT pg_temp.record_operational_result(
+  16, 'legacy enum and void RPC contracts are removed',
+  to_regprocedure(
+    'public.admin_update_order_status(uuid,public.order_status)'
+  ) IS NULL
+  AND to_regprocedure(
+    'public.vendor_update_order_status(uuid,public.order_status)'
+  ) IS NULL
+  AND (
+    SELECT pg_get_function_result(
+      'public.rider_claim_order(uuid)'::regprocedure
+    ) = 'jsonb'
+  )
+  AND (
+    SELECT pg_get_function_result(
+      'public.rider_mark_delivered(uuid)'::regprocedure
+    ) = 'jsonb'
+  )
+);
+
+SELECT pg_temp.record_operational_result(
+  17, 'operational RPCs return JSONB and PUBLIC cannot execute them',
+  (
+    SELECT count(*) = 4
+    FROM pg_proc AS p
+    JOIN pg_namespace AS n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.oid IN (
+        'public.admin_update_order_status(uuid,text)'::regprocedure,
+        'public.vendor_update_order_status(uuid,text)'::regprocedure,
+        'public.rider_claim_order(uuid)'::regprocedure,
+        'public.rider_mark_delivered(uuid)'::regprocedure
+      )
+      AND pg_get_function_result(p.oid) = 'jsonb'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_proc AS p
+    JOIN pg_namespace AS n ON n.oid = p.pronamespace
+    CROSS JOIN LATERAL aclexplode(
+      COALESCE(p.proacl, acldefault('f', p.proowner))
+    ) AS privilege
+    WHERE n.nspname = 'public'
+      AND p.oid IN (
+        'public.admin_update_order_status(uuid,text)'::regprocedure,
+        'public.vendor_update_order_status(uuid,text)'::regprocedure,
+        'public.rider_claim_order(uuid)'::regprocedure,
+        'public.rider_mark_delivered(uuid)'::regprocedure
+      )
+      AND privilege.grantee = 0
+      AND privilege.privilege_type = 'EXECUTE'
+  )
+);
+
 DO $report$
 DECLARE
   v_result RECORD;
@@ -329,10 +383,10 @@ BEGIN
   INTO v_failed
   FROM operational_gate_results;
 
-  RAISE NOTICE 'OPERATIONAL RPC GATE SUMMARY: % PASS, % FAIL, 15 TOTAL',
-    15 - v_failed, v_failed;
+  RAISE NOTICE 'OPERATIONAL RPC GATE SUMMARY: % PASS, % FAIL, 17 TOTAL',
+    17 - v_failed, v_failed;
 
-  IF (SELECT count(*) FROM operational_gate_results) <> 15 THEN
+  IF (SELECT count(*) FROM operational_gate_results) <> 17 THEN
     RAISE EXCEPTION 'operational RPC gate incomplete';
   END IF;
 

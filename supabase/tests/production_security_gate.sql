@@ -623,6 +623,127 @@ SELECT pg_temp.assert_result(
   )
 );
 
+SET LOCAL ROLE anon;
+SELECT set_config('request.jwt.claim.sub', '', true);
+SELECT pg_temp.assert_result(
+  57, 'anon can read only active and open restaurant/menu fixtures',
+  (SELECT count(*) = 1 FROM public.restaurants
+   WHERE id = '20000000-0000-0000-0000-000000000001')
+  AND (SELECT count(*) = 1 FROM public.menu_items
+       WHERE id = '30000000-0000-0000-0000-000000000001')
+);
+SELECT pg_temp.expect_error(
+  58, 'anon cannot mutate restaurants',
+  $$UPDATE public.restaurants
+    SET name = 'Anonymous mutation'
+    WHERE id = '20000000-0000-0000-0000-000000000001'$$
+);
+SELECT pg_temp.expect_error(
+  59, 'anon cannot mutate menu items',
+  $$DELETE FROM public.menu_items
+    WHERE id = '30000000-0000-0000-0000-000000000001'$$
+);
+
+RESET ROLE;
+SELECT pg_temp.assert_result(
+  60, 'anon cannot execute any SECURITY DEFINER function in public',
+  NOT EXISTS (
+    SELECT 1
+    FROM pg_proc AS p
+    JOIN pg_namespace AS n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.prosecdef
+      AND has_function_privilege('anon', p.oid, 'EXECUTE')
+  )
+);
+SELECT pg_temp.assert_result(
+  61, 'PUBLIC has no function execute privilege in public',
+  NOT EXISTS (
+    SELECT 1
+    FROM pg_proc AS p
+    JOIN pg_namespace AS n ON n.oid = p.pronamespace
+    CROSS JOIN LATERAL aclexplode(
+      COALESCE(p.proacl, acldefault('f', p.proowner))
+    ) AS privilege
+    WHERE n.nspname = 'public'
+      AND privilege.grantee = 0
+      AND privilege.privilege_type = 'EXECUTE'
+  )
+);
+SELECT pg_temp.assert_result(
+  62, 'anonymous table privileges are read-only and limited to menu surfaces',
+  has_schema_privilege('anon', 'public', 'USAGE')
+  AND has_table_privilege('anon', 'public.restaurants', 'SELECT')
+  AND has_table_privilege('anon', 'public.menu_items', 'SELECT')
+  AND NOT has_table_privilege(
+    'anon', 'public.restaurants',
+    'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+  )
+  AND NOT has_table_privilege(
+    'anon', 'public.menu_items',
+    'INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM information_schema.role_table_grants AS g
+    WHERE g.table_schema = 'public'
+      AND g.grantee = 'anon'
+      AND g.table_name NOT IN ('restaurants', 'menu_items')
+  )
+);
+SELECT pg_temp.assert_result(
+  63, 'restaurant availability flags are constrained and default true',
+  (
+    SELECT is_nullable = 'NO' AND column_default = 'true'
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'restaurants'
+      AND column_name = 'is_active'
+  )
+  AND (
+    SELECT is_nullable = 'NO' AND column_default = 'true'
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'restaurants'
+      AND column_name = 'is_open'
+  )
+);
+SELECT pg_temp.assert_result(
+  64, 'public menu policies are canonical and do not broaden anon access',
+  (
+    SELECT count(*) = 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'restaurants'
+      AND 'anon' = ANY(roles)
+      AND cmd = 'SELECT'
+      AND policyname = 'anon_read_active_open_restaurants'
+      AND qual LIKE '%is_available IS TRUE%'
+      AND qual LIKE '%is_active IS TRUE%'
+      AND qual LIKE '%is_open IS TRUE%'
+  )
+  AND (
+    SELECT count(*) = 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'menu_items'
+      AND 'anon' = ANY(roles)
+      AND cmd = 'SELECT'
+      AND policyname = 'anon_read_available_menu_items'
+      AND qual LIKE '%is_available IS TRUE%'
+      AND qual LIKE '%is_active IS TRUE%'
+      AND qual LIKE '%is_open IS TRUE%'
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename IN ('restaurants', 'menu_items')
+      AND 'public' = ANY(roles)
+      AND cmd = 'SELECT'
+  )
+);
+
 DO $report$
 DECLARE
   v_result record;
@@ -646,8 +767,8 @@ BEGIN
   RAISE NOTICE 'SECURITY GATE SUMMARY: % PASS, % FAIL, % TOTAL',
     v_passed, v_failed, v_passed + v_failed;
 
-  IF (SELECT count(*) FROM security_gate_results) <> 56 THEN
-    RAISE EXCEPTION 'security gate incomplete: expected 56 results, got %',
+  IF (SELECT count(*) FROM security_gate_results) <> 64 THEN
+    RAISE EXCEPTION 'security gate incomplete: expected 64 results, got %',
       (SELECT count(*) FROM security_gate_results);
   END IF;
 

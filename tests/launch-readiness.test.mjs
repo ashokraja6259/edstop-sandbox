@@ -95,7 +95,15 @@ test('dark-store COD checkout is idempotent and uses one atomic RPC', async () =
 });
 
 test('operational order RPCs match client calls and enforce scoped transitions', async () => {
-  const [admin, vendor, rider, migration, dispatchMigration] =
+  const [
+    admin,
+    vendor,
+    rider,
+    migration,
+    dispatchMigration,
+    driftMigration,
+    anonMigration,
+  ] =
     await Promise.all([
       read('src/app/admin/operations/page.tsx'),
       read('src/app/vendor/orders/page.tsx'),
@@ -107,6 +115,12 @@ test('operational order RPCs match client calls and enforce scoped transitions',
       ),
       read(
         'supabase/migrations/20260731000200_require_rider_for_admin_dispatch.sql'
+      ),
+      read(
+        'supabase/migrations/20260731000300_reconcile_operational_rpc_drift.sql'
+      ),
+      read(
+        'supabase/migrations/20260731000400_harden_anonymous_public_surface.sql'
       ),
     ]);
 
@@ -137,6 +151,91 @@ test('operational order RPCs match client calls and enforce scoped transitions',
   assert.doesNotMatch(migration, /public\.payment_intents/);
   assert.match(dispatchMigration, /rider assignment required/);
   assert.match(dispatchMigration, /v_rider_id IS NULL/);
+
+  assert.match(
+    driftMigration,
+    /DROP FUNCTION IF EXISTS public\.admin_update_order_status\(\s*UUID,\s*public\.order_status/
+  );
+  assert.match(
+    driftMigration,
+    /DROP FUNCTION IF EXISTS public\.vendor_update_order_status\(\s*UUID,\s*public\.order_status/
+  );
+  assert.match(
+    driftMigration,
+    /DROP FUNCTION IF EXISTS public\.rider_claim_order\(UUID\)/
+  );
+  assert.match(
+    driftMigration,
+    /DROP FUNCTION IF EXISTS public\.rider_mark_delivered\(UUID\)/
+  );
+  assert.doesNotMatch(driftMigration, /DROP FUNCTION[\s\S]*\bCASCADE\b/);
+  assert.match(driftMigration, /dependent object exists/);
+  assert.match(driftMigration, /RETURNS JSONB/g);
+  assert.match(driftMigration, /FOR UPDATE;/);
+  assert.match(driftMigration, /idempotent_replay/);
+  assert.match(driftMigration, /order is outside vendor scope/);
+  assert.match(driftMigration, /order is not assigned to this rider/);
+  assert.match(driftMigration, /rider assignment required/);
+
+  assert.match(
+    anonMigration,
+    /REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon/
+  );
+  assert.match(
+    anonMigration,
+    /GRANT USAGE ON SCHEMA public TO anon/
+  );
+  assert.match(
+    anonMigration,
+    /GRANT SELECT ON TABLE public\.restaurants, public\.menu_items TO anon/
+  );
+  assert.doesNotMatch(
+    anonMigration,
+    /GRANT\s+(?:INSERT|UPDATE|DELETE|ALL)[\s\S]*\bTO anon\b/i
+  );
+  for (const functionName of [
+    'admin_update_order_status',
+    'vendor_update_order_status',
+    'rider_claim_order',
+    'rider_mark_delivered',
+  ]) {
+    assert.match(
+      driftMigration,
+      new RegExp(
+        `REVOKE ALL ON FUNCTION public\\.${functionName}[\\s\\S]*?FROM PUBLIC, anon, authenticated`
+      )
+    );
+  }
+});
+
+test('restaurant drift repair narrows policies without normalizing the production FK', async () => {
+  const migration = await read(
+    'supabase/migrations/20260731000300_reconcile_operational_rpc_drift.sql'
+  );
+
+  assert.match(migration, /owner_missing_profiles|v_missing_profiles/);
+  assert.match(migration, /intentionally deferred/);
+  assert.doesNotMatch(
+    migration,
+    /DROP CONSTRAINT\s+restaurants_owner_id_fkey/i
+  );
+  assert.match(migration, /ALTER COLUMN is_active SET NOT NULL/);
+  assert.match(migration, /ALTER COLUMN is_open SET NOT NULL/);
+
+  for (const policy of [
+    'Admin full access restaurants',
+    'Vendor manage own restaurant',
+    'Admin full access menu',
+    'Vendor manage own menu',
+  ]) {
+    assert.match(
+      migration,
+      new RegExp(`DROP POLICY IF EXISTS "${policy}"`)
+    );
+  }
+
+  assert.match(migration, /up\.role = 'vendor'::public\.user_role/);
+  assert.match(migration, /WITH CHECK \(/);
 });
 
 test('environment template contains every documented production variable', async () => {
