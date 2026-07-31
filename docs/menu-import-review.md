@@ -18,16 +18,15 @@ Prices with multiple printed portions are separate `menu_items` rows so the
 existing cart and atomic checkout continue to obtain the exact selected price
 from `menu_items.price`. All staged restaurants and menu rows are unavailable.
 
-## Source handling decisions requiring review
+## Approved source handling decisions
 
 - `GRILL CAFE 1.pdf` is structurally damaged: its early object/xref region is
   zeroed and the cover could not be recovered. Eight remaining pages were
   recovered for visual comparison. Their 66 menu entries duplicate the later,
   complete `AMIGOS 1.pdf` master.
 - Peri-Peri Chicken Mac & Cheese is ₹199 in the damaged Grill Cafe source page
-  6 and ₹229 in `AMIGOS 1.pdf` page 36. The staged value is ₹229 because the
-  latter is the complete master. This is the one price conflict requiring
-  explicit approval.
+  6 and ₹229 in the final complete customer-facing `AMIGOS 1.pdf` master page
+  36. The approved selling price is **₹229**; the final complete master governs.
 - Veg Arabian Mandi prints ₹249 for Single Serving and `TBC | TBC` for Half
   Platter and Full Platter. Only the ₹249 Single Serving is staged; no price was
   invented for either TBC portion.
@@ -48,7 +47,6 @@ not touch orders, order items, wallets, payments, RLS, or RPCs, and leaves the
 four outlets closed and unavailable. Existing outlets remain unchanged.
 
 Vendor ownership is intentionally not assigned by this import. Before any
-Production activation, an operator must confirm the one price conflict, assign
-the correct existing vendor identities, take a backup, apply the migration,
-validate the hidden rows, and request separate approval for an atomic outlet
-visibility switch.
+Production activation, an operator must assign the correct existing vendor
+identities, take a backup, apply the migration, validate the hidden rows, and
+request separate approval for an atomic outlet visibility switch.

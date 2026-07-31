@@ -4,7 +4,7 @@
   "source_policy": {
     "primary_master": "AMIGOS 1.pdf",
     "duplicate_cross_check": "GRILL CAFE 1.pdf",
-    "duplicate_conflict": "Peri-Peri Chicken Mac & Cheese is ₹229 in AMIGOS 1.pdf page 36 and ₹199 in GRILL CAFE 1.pdf source page 6; the later complete master price ₹229 is staged pending review.",
+    "duplicate_conflict": "Approved selling price: ₹229. Peri-Peri Chicken Mac & Cheese is ₹229 in the final complete customer-facing AMIGOS 1.pdf master page 36 and ₹199 in the damaged GRILL CAFE 1.pdf source page 6; the final complete master governs.",
     "unpriced_portions": "Veg Arabian Mandi Half Platter and Full Platter are printed TBC and are intentionally not imported as purchasable rows."
   },
   "restaurants": [

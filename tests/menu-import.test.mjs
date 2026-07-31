@@ -58,6 +58,7 @@ test('reviewed edge cases preserve source data without inventing prices', () => 
 
   const greekSalads = find('Greek Salad');
   assert.deepEqual(greekSalads.map((item) => item.price), [249, 329, 179]);
+  assert.match(payload.source_policy.duplicate_conflict, /Approved selling price: ₹229/);
   assert.match(payload.source_policy.duplicate_conflict, /₹229.*₹199/);
   assert.match(payload.source_policy.unpriced_portions, /TBC/);
 });
