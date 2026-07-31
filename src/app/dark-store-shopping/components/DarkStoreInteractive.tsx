@@ -454,6 +454,22 @@ const DarkStoreInteractive = () => {
         return;
       }
 
+      if (!user?.id) {
+        throw new Error('User not authenticated.');
+      }
+
+      const codCartKey = cartItems
+        .map((item) => `${item.id}:${item.quantity}`)
+        .sort()
+        .join('|');
+      const codStorageKey = `edstop-cod:${user.id}:${codCartKey}`;
+      let codIdempotencyKey = sessionStorage.getItem(codStorageKey);
+
+      if (!codIdempotencyKey) {
+        codIdempotencyKey = crypto.randomUUID();
+        sessionStorage.setItem(codStorageKey, codIdempotencyKey);
+      }
+
       const response = await fetch('/api/dark-store/cod/create-order', {
         method: 'POST',
         headers: {
@@ -465,6 +481,7 @@ const DarkStoreInteractive = () => {
             quantity: item.quantity,
           })),
           promoCode: null,
+          idempotencyKey: codIdempotencyKey,
         }),
       });
 
@@ -487,6 +504,7 @@ const DarkStoreInteractive = () => {
       setCart({});
       setActiveOrderId(data.orderNumber ?? null);
       setIsCartOpen(false);
+      sessionStorage.removeItem(codStorageKey);
       toast.success('Order placed!', `Order #${data.orderNumber} confirmed. Pay by cash on delivery.`);
     } catch (error: unknown) {
       toast.error('Checkout failed', error instanceof Error ? error.message : 'Please try again.');

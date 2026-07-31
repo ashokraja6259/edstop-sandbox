@@ -24,13 +24,10 @@ async function updateRiderRole(formData: FormData) {
     return;
   }
 
-  const { error } = await supabase
-    .from('user_profiles')
-    .update({
-      role,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', userId);
+  const { error } = await supabase.rpc('admin_assign_user_role', {
+    p_user_id: userId,
+    p_role: role,
+  });
 
   if (error) {
     console.error('Rider role update failed:', error);
