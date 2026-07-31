@@ -122,6 +122,38 @@ test('order_items corrective migration safely reconciles the Production drift', 
   assert.match(fixture, /ROLLBACK/);
 });
 
+test('wallet metadata corrective migration preserves existing ledger rows', async () => {
+  const [migration, fixture] = await Promise.all([
+    read(
+      'supabase/migrations/20260731000600_reconcile_wallet_transactions_metadata.sql'
+    ),
+    read('supabase/tests/wallet_transactions_schema_drift_fixture.sql'),
+  ]);
+
+  assert.match(
+    migration,
+    /CREATE TABLE IF NOT EXISTS[\s\S]*does not add the column/
+  );
+  assert.match(migration, /ADD COLUMN metadata JSONB/);
+  assert.match(migration, /nullable JSONB column without a default/);
+  assert.match(migration, /public\.wallet_transactions is missing/);
+  assert.match(migration, /metadata is incompatible/);
+  assert.match(migration, /unexpected constraint/);
+  assert.match(migration, /unexpected index/);
+  assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN|CASCADE/);
+  assert.doesNotMatch(migration, /UPDATE public\.wallet_transactions/);
+  assert.doesNotMatch(migration, /CREATE INDEX|REFERENCES/);
+
+  assert.match(fixture, /DROP COLUMN metadata/);
+  assert.match(fixture, /pre-correction row/);
+  assert.match(fixture, /wallet transaction row preservation failed/);
+  assert.match(fixture, /metadata contract is incorrect/);
+  assert.match(fixture, /unexpected constraint or index/);
+  assert.match(fixture, /finalize_razorpay_payment/);
+  assert.match(fixture, /reserve_razorpay_refund/);
+  assert.match(fixture, /ROLLBACK/);
+});
+
 test('operational order RPCs match client calls and enforce scoped transitions', async () => {
   const [
     admin,
