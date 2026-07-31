@@ -94,6 +94,34 @@ test('dark-store COD checkout is idempotent and uses one atomic RPC', async () =
   );
 });
 
+test('order_items corrective migration safely reconciles the Production drift', async () => {
+  const [migration, fixture] = await Promise.all([
+    read(
+      'supabase/migrations/20260731000500_reconcile_order_items_item_id.sql'
+    ),
+    read('supabase/tests/order_items_schema_drift_fixture.sql'),
+  ]);
+
+  assert.match(
+    migration,
+    /CREATE TABLE IF NOT EXISTS[\s\S]*not add missing columns/
+  );
+  assert.match(migration, /ADD COLUMN item_id TEXT/);
+  assert.match(migration, /item_id is a nullable TEXT snapshot identifier/);
+  assert.match(migration, /intentionally polymorphic/);
+  assert.match(migration, /public\.order_items is missing/);
+  assert.match(migration, /item_id is incompatible/);
+  assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN|CASCADE/);
+  assert.doesNotMatch(migration, /UPDATE public\.order_items/);
+  assert.doesNotMatch(migration, /REFERENCES/);
+
+  assert.match(fixture, /Reproduce the eight-column Production table shape/);
+  assert.match(fixture, /order_items rows were not preserved/);
+  assert.match(fixture, /item_id was not reconciled as nullable text/);
+  assert.match(fixture, /historical rows were unexpectedly backfilled/);
+  assert.match(fixture, /ROLLBACK/);
+});
+
 test('operational order RPCs match client calls and enforce scoped transitions', async () => {
   const [
     admin,
