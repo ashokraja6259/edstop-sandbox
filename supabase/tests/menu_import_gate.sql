@@ -11,7 +11,7 @@ BEGIN
     'amigos-grill-cafe', 'spicy-darbar',
     'amigos-andhra-bhawan', 'red-panda'
   )
-    AND is_active IS TRUE
+    AND is_active IS FALSE
     AND is_available IS FALSE
     AND is_open IS FALSE;
 
@@ -24,20 +24,36 @@ BEGIN
   )
     AND item.is_available IS FALSE;
 
-  IF v_restaurant_count <> 4 OR v_item_count <> 882 THEN
+  IF v_restaurant_count <> 4 OR v_item_count <> 884 THEN
     RAISE EXCEPTION
       'staged menu mismatch: % restaurants, % items',
       v_restaurant_count, v_item_count;
   END IF;
 
-  IF EXISTS (
-    SELECT 1
-    FROM public.menu_items
-    WHERE source_pdf = 'AMIGOS 1.pdf'
-      AND logical_item_name = 'Veg Arabian Mandi'
-      AND portion_name <> 'Single Serving'
-  ) THEN
-    RAISE EXCEPTION 'TBC Veg Arabian Mandi portions became purchasable rows';
+  IF (SELECT count(*)
+      FROM public.menu_items
+      WHERE source_pdf = 'AMIGOS 1.pdf'
+        AND logical_item_name = 'Veg Arabian Mandi') <> 3
+     OR EXISTS (
+       (SELECT portion_name, price
+        FROM public.menu_items
+        WHERE source_pdf = 'AMIGOS 1.pdf'
+          AND logical_item_name = 'Veg Arabian Mandi'
+        EXCEPT VALUES
+          ('Single Serving'::TEXT, 249::NUMERIC),
+          ('Half Platter'::TEXT, 499::NUMERIC),
+          ('Full Platter'::TEXT, 799::NUMERIC))
+       UNION ALL
+       (VALUES
+          ('Single Serving'::TEXT, 249::NUMERIC),
+          ('Half Platter'::TEXT, 499::NUMERIC),
+          ('Full Platter'::TEXT, 799::NUMERIC)
+        EXCEPT SELECT portion_name, price
+        FROM public.menu_items
+        WHERE source_pdf = 'AMIGOS 1.pdf'
+          AND logical_item_name = 'Veg Arabian Mandi')
+     ) THEN
+    RAISE EXCEPTION 'approved Veg Arabian Mandi variants do not match';
   END IF;
 
   IF NOT EXISTS (
@@ -96,8 +112,8 @@ BEGIN
     RAISE EXCEPTION 'anonymous activation preview does not expose exactly four outlets';
   END IF;
 
-  IF (SELECT count(*) FROM public.menu_items) <> 882 THEN
-    RAISE EXCEPTION 'anonymous activation preview does not expose exactly 882 items';
+  IF (SELECT count(*) FROM public.menu_items) <> 884 THEN
+    RAISE EXCEPTION 'anonymous activation preview does not expose exactly 884 items';
   END IF;
 END;
 $anonymous_visibility_gate$;

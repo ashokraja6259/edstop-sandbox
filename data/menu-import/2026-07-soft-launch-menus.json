@@ -4,8 +4,9 @@
   "source_policy": {
     "primary_master": "AMIGOS 1.pdf",
     "duplicate_cross_check": "GRILL CAFE 1.pdf",
-    "duplicate_conflict": "Approved selling price: ₹229. Peri-Peri Chicken Mac & Cheese is ₹229 in the final complete customer-facing AMIGOS 1.pdf master page 36 and ₹199 in the damaged GRILL CAFE 1.pdf source page 6; the final complete master governs.",
-    "unpriced_portions": "Veg Arabian Mandi Half Platter and Full Platter are printed TBC and are intentionally not imported as purchasable rows."
+    "pricing_policy": "Deployment prices use the non-discounted printed prices from the final approved PDFs; lower student or offer prices are not imported.",
+    "duplicate_conflict": "Peri-Peri Chicken Mac & Cheese uses the final approved customer-facing price of ₹229 from AMIGOS 1.pdf page 36.",
+    "mandi_price_approval": "Veg Arabian Mandi is explicitly approved at ₹249 Single Serving, ₹499 Half Platter, and ₹799 Full Platter."
   },
   "restaurants": [
     {
@@ -14,7 +15,9 @@
       "slug": "amigos-grill-cafe",
       "description": "Amigos Grill Cafe celebrates fire-grilled shawarmas, shareable mandi, comforting continental dishes and refreshing beverages.",
       "display_order": 1,
-      "availability": false
+      "availability": false,
+      "is_active": false,
+      "is_open": false
     },
     {
       "id": "e75da85d-aa2a-5a3b-b82a-7068724804de",
@@ -22,7 +25,9 @@
       "slug": "spicy-darbar",
       "description": "Spicy Darbar celebrates Indian classics — tandoor, dals, curries, breads, rice and a carefully selected line-up of hero biryanis.",
       "display_order": 2,
-      "availability": false
+      "availability": false,
+      "is_active": false,
+      "is_open": false
     },
     {
       "id": "7b15b9e0-2a50-5d90-9a49-9f85d5fa42bf",
@@ -30,7 +35,9 @@
       "slug": "amigos-andhra-bhawan",
       "description": "Amigos Andhra Bhawan celebrates the comfort, simplicity and regional character of South Indian food.",
       "display_order": 3,
-      "availability": false
+      "availability": false,
+      "is_active": false,
+      "is_open": false
     },
     {
       "id": "e0581b4a-4e88-5a24-87cf-a6822b824350",
@@ -38,7 +45,9 @@
       "slug": "red-panda",
       "description": "Red Panda brings bold wok-tossed Indo-Chinese favourites, from crisp starters to satisfying rice and noodle meals.",
       "display_order": 4,
-      "availability": false
+      "availability": false,
+      "is_active": false,
+      "is_open": false
     }
   ],
   "items": [
@@ -2780,13 +2789,57 @@
       "category_name": "ARABIAN MANDI",
       "category_sort_order": 5,
       "logical_item_name": "Veg Arabian Mandi",
-      "item_name": "Veg Arabian Mandi",
+      "item_name": "Veg Arabian Mandi — Single Serving",
       "item_description": "Fragrant Arabian mandi rice served with mixed vegetables, gentle spices and a signature smoky finish.",
       "dietary_type": "Veg",
       "spice_level": "Mild",
       "portion_name": "Single Serving",
       "price": 249,
       "item_sort_order": 91,
+      "badge": null,
+      "availability": false,
+      "source_pdf": "AMIGOS 1.pdf",
+      "source_page": 8
+    },
+    {
+      "id": "392c91ba-93ea-53fa-be01-31363356d3c4",
+      "external_id": "soft-launch-2026-07-9c12faacf66fd7b0edf2",
+      "restaurant_name": "Amigos Grill Cafe",
+      "restaurant_slug": "amigos-grill-cafe",
+      "restaurant_description": "Amigos Grill Cafe celebrates fire-grilled shawarmas, shareable mandi, comforting continental dishes and refreshing beverages.",
+      "restaurant_sort_order": 1,
+      "category_name": "ARABIAN MANDI",
+      "category_sort_order": 5,
+      "logical_item_name": "Veg Arabian Mandi",
+      "item_name": "Veg Arabian Mandi — Half Platter",
+      "item_description": "Fragrant Arabian mandi rice served with mixed vegetables, gentle spices and a signature smoky finish.",
+      "dietary_type": "Veg",
+      "spice_level": "Mild",
+      "portion_name": "Half Platter",
+      "price": 499,
+      "item_sort_order": 92,
+      "badge": null,
+      "availability": false,
+      "source_pdf": "AMIGOS 1.pdf",
+      "source_page": 8
+    },
+    {
+      "id": "b55345da-5894-56d9-9322-13be36ba3d72",
+      "external_id": "soft-launch-2026-07-183be358d53803142e61",
+      "restaurant_name": "Amigos Grill Cafe",
+      "restaurant_slug": "amigos-grill-cafe",
+      "restaurant_description": "Amigos Grill Cafe celebrates fire-grilled shawarmas, shareable mandi, comforting continental dishes and refreshing beverages.",
+      "restaurant_sort_order": 1,
+      "category_name": "ARABIAN MANDI",
+      "category_sort_order": 5,
+      "logical_item_name": "Veg Arabian Mandi",
+      "item_name": "Veg Arabian Mandi — Full Platter",
+      "item_description": "Fragrant Arabian mandi rice served with mixed vegetables, gentle spices and a signature smoky finish.",
+      "dietary_type": "Veg",
+      "spice_level": "Mild",
+      "portion_name": "Full Platter",
+      "price": 799,
+      "item_sort_order": 93,
       "badge": null,
       "availability": false,
       "source_pdf": "AMIGOS 1.pdf",
