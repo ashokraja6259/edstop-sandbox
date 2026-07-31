@@ -192,6 +192,7 @@ const RiderDashboardInteractive = () => {
     batchDeliveries: liveBatchDeliveries,
     riderStats: liveRiderStats,
     isLoading: isLiveLoading,
+    refresh: refreshRiderOrders,
   } = useRiderRealtime(user?.id);
 
   useEffect(() => {
@@ -252,6 +253,7 @@ const RiderDashboardInteractive = () => {
 
           if (error) throw error;
 
+          await refreshRiderOrders();
           toast.success('Order claimed', 'Delivery has started successfully');
           setActiveTab('active');
         } else if (newStatus === 'delivered') {
@@ -261,6 +263,7 @@ const RiderDashboardInteractive = () => {
 
           if (error) throw error;
 
+          await refreshRiderOrders();
           toast.success('Order delivered', 'Order marked as delivered');
           setActiveTab('completed');
         } else {
@@ -277,7 +280,7 @@ const RiderDashboardInteractive = () => {
         setIsActionLoading(false);
       }
     },
-    [isActionLoading, toast]
+    [isActionLoading, refreshRiderOrders, toast]
   );
 
   const handleClaimOrder = useCallback(

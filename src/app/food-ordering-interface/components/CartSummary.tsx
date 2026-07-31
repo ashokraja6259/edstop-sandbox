@@ -257,10 +257,12 @@ const CartSummary = ({
           <span>{deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}</span>
         </div>
 
-        <div className="flex justify-between text-slate-400">
-          <span>Convenience Fee</span>
-          <span>₹{convenienceFee}</span>
-        </div>
+        {convenienceFee > 0 && (
+          <div className="flex justify-between text-slate-400">
+            <span>Convenience Fee</span>
+            <span>₹{convenienceFee}</span>
+          </div>
+        )}
 
         {cashback > 0 && (
 

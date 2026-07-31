@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useToast } from '@/contexts/ToastContext';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -65,6 +65,7 @@ export interface RiderRealtimeData {
   batchDeliveries: RiderBatchGroup[];
   riderStats: RiderStats;
   isLoading: boolean;
+  refresh: () => Promise<void>;
 }
 
 interface DBOrder {
@@ -214,49 +215,31 @@ export function useRiderRealtime(
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (!riderId) {
-      return;
-    }
+  const fetchData = useCallback(async () => {
+    if (!riderId) return;
 
-    let cancelled = false;
+    setIsLoading(true);
 
-    const fetchData = async () => {
-      setIsLoading(true);
+    try {
+      const response = await fetch('/api/rider/orders', { cache: 'no-store' });
+      const data = (await response.json()) as {
+        error?: string;
+        available?: DBOrder[];
+        active?: DBOrder[];
+        completed?: DBOrder[];
+      };
 
-      const [{ data: availableData }, { data: activeData }, { data: completedData }] =
-        await Promise.all([
-          supabase
-            .from('orders')
-            .select('*')
-            .is('rider_id', null)
-            .eq('status', 'ready')
-            .order('created_at', { ascending: true }),
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to load rider orders');
+      }
 
-          supabase
-            .from('orders')
-            .select('*')
-            .eq('rider_id', riderId)
-            .eq('status', 'out_for_delivery')
-            .order('dispatched_at', { ascending: false }),
-
-          supabase
-            .from('orders')
-            .select('*')
-            .eq('rider_id', riderId)
-            .eq('status', 'delivered')
-            .order('actual_delivery_time', { ascending: false }),
-        ]);
-
-      if (cancelled) return;
-
-      const mappedAvailable = ((availableData || []) as DBOrder[])
+      const mappedAvailable = (data.available ?? [])
         .map(dbToRider)
         .filter(isAvailableRiderOrder);
-      const mappedActive = ((activeData || []) as DBOrder[])
+      const mappedActive = (data.active ?? [])
         .map(dbToRider)
         .filter(isAssignedRiderOrder);
-      const mappedCompleted = ((completedData || []) as DBOrder[])
+      const mappedCompleted = (data.completed ?? [])
         .map(dbToRider)
         .filter(isAssignedRiderOrder);
 
@@ -264,15 +247,22 @@ export function useRiderRealtime(
       setActiveOrders(mappedActive);
       setCompletedOrders(mappedCompleted);
       setRiderStats(calculateStats(mappedCompleted));
+    } catch (error) {
+      console.error('Rider data refresh failed:', error);
+    } finally {
       setIsLoading(false);
-    };
-
-    void fetchData();
-
-    return () => {
-      cancelled = true;
-    };
+    }
   }, [riderId]);
+
+  useEffect(() => {
+    if (!riderId) return;
+
+    const initialFetch = window.setTimeout(() => {
+      void fetchData();
+    }, 0);
+
+    return () => window.clearTimeout(initialFetch);
+  }, [fetchData, riderId]);
 
   useEffect(() => {
     if (!riderId) return;
@@ -356,6 +346,8 @@ export function useRiderRealtime(
           if (order.rider_id === riderId && order.status === 'delivered') {
             toast.success('Order delivered', `Order #${order.order_number} marked delivered`);
           }
+
+          void fetchData();
         }
       )
       .subscribe();
@@ -368,7 +360,7 @@ export function useRiderRealtime(
       );
       channelsRef.current = [];
     };
-  }, [riderId, toast]);
+  }, [fetchData, riderId, toast]);
 
   return {
     availableOrders,
@@ -377,5 +369,6 @@ export function useRiderRealtime(
     batchDeliveries,
     riderStats,
     isLoading: riderId ? isLoading : false,
+    refresh: fetchData,
   };
 }

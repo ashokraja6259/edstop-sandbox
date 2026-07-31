@@ -56,8 +56,6 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<OAuthResponse>;
   resetPassword: (email: string) => Promise<void>;
   resendVerificationEmail: (email: string) => Promise<void>;
-  signInWithPhoneOtp: (phone: string) => Promise<void>;
-  verifyPhoneOtp: (phone: string, token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -297,32 +295,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     [supabase]
   );
 
-  const signInWithPhoneOtp = useCallback(
-    async (phone: string) => {
-      const response = await supabase.auth.signInWithOtp({ phone });
-
-      if (response.error) {
-        throw response.error;
-      }
-    },
-    [supabase]
-  );
-
-  const verifyPhoneOtp = useCallback(
-    async (phone: string, token: string) => {
-      const response = await supabase.auth.verifyOtp({
-        phone,
-        token,
-        type: 'sms',
-      });
-
-      if (response.error) {
-        throw response.error;
-      }
-    },
-    [supabase]
-  );
-
   const isProfileComplete = useMemo(
     () => getIsProfileComplete(profile),
     [profile]
@@ -344,8 +316,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       signInWithGoogle,
       resetPassword,
       resendVerificationEmail,
-      signInWithPhoneOtp,
-      verifyPhoneOtp,
     }),
     [
       user,
@@ -362,8 +332,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       signInWithGoogle,
       resetPassword,
       resendVerificationEmail,
-      signInWithPhoneOtp,
-      verifyPhoneOtp,
     ]
   );
 

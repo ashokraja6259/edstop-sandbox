@@ -188,7 +188,7 @@ const StudentDashboardInteractive = () => {
     return 'Scholar';
   };
 
-  const walletBalance = liveBalance ?? 1250.5;
+  const walletBalance = liveBalance ?? 0;
   const cashbackEarned = liveCashback > 0 ? liveCashback : 62.75;
 
   const recentTransactions =

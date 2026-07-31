@@ -17,6 +17,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
 import useDeliveryTracking from '@/hooks/useDeliveryTracking';
 import { useFoodOrderingRealtime } from '@/hooks/useFoodOrderingRealtime';
+import { useWalletData } from '@/hooks/useWalletData';
 
 /* ================= TYPES ================= */
 
@@ -58,6 +59,7 @@ const FoodOrderingInteractive = () => {
   const supabase = useMemo(() => createClient(), []);
   const toast = useToast();
   const { user } = useAuth();
+  const { walletBalance } = useWalletData(user?.id);
 
   /* ================= STATE ================= */
 
@@ -307,7 +309,7 @@ const FoodOrderingInteractive = () => {
               <Icon name="ArrowLeftIcon" size={16} />
               Dashboard
             </Link>
-            <WalletIndicator balance={500} />
+            <WalletIndicator balance={walletBalance} />
           </div>
         </div>
       </header>
@@ -458,9 +460,9 @@ const FoodOrderingInteractive = () => {
                 items={cart}
                 subtotal={subtotal}
                 deliveryFee={0}
-                convenienceFee={10}
+                convenienceFee={0}
                 cashback={0}
-                total={subtotal + 10}
+                total={subtotal}
                 onRemoveItem={handleRemoveItem}
                 onUpdateQuantity={handleUpdateQuantity}
                 onCheckout={() => setIsCheckoutOpen(true)}
@@ -485,7 +487,7 @@ const FoodOrderingInteractive = () => {
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
-        walletBalance={500}
+        walletBalance={walletBalance}
         maxWalletRedemption={100}
         cartItems={cart}
         restaurantId={selectedRestaurant ?? ''}
