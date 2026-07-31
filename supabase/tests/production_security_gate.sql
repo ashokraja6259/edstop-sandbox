@@ -646,13 +646,12 @@ SELECT pg_temp.expect_error(
 
 RESET ROLE;
 SELECT pg_temp.assert_result(
-  60, 'anon cannot execute any SECURITY DEFINER function in public',
+  60, 'anon cannot execute any function in public',
   NOT EXISTS (
     SELECT 1
     FROM pg_proc AS p
     JOIN pg_namespace AS n ON n.oid = p.pronamespace
     WHERE n.nspname = 'public'
-      AND p.prosecdef
       AND has_function_privilege('anon', p.oid, 'EXECUTE')
   )
 );
@@ -743,6 +742,41 @@ SELECT pg_temp.assert_result(
       AND cmd = 'SELECT'
   )
 );
+SELECT pg_temp.assert_result(
+  65, 'authenticated function execution is allowlisted and defaults are closed',
+  NOT EXISTS (
+    SELECT 1
+    FROM pg_proc AS p
+    JOIN pg_namespace AS n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
+      AND p.proname NOT IN (
+        'get_user_role',
+        'admin_assign_user_role',
+        'is_admin_user',
+        'validate_promo_code',
+        'create_order_atomic',
+        'admin_update_order_status',
+        'vendor_update_order_status',
+        'rider_claim_order',
+        'rider_mark_delivered',
+        'create_user_notification'
+      )
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM pg_default_acl AS d
+    CROSS JOIN LATERAL aclexplode(d.defaclacl) AS privilege
+    WHERE d.defaclrole = 'postgres'::regrole
+      AND d.defaclnamespace = 'public'::regnamespace
+      AND d.defaclobjtype = 'f'
+      AND privilege.privilege_type = 'EXECUTE'
+      AND (
+        privilege.grantee = 0
+        OR pg_get_userbyid(privilege.grantee) IN ('anon', 'authenticated')
+      )
+  )
+);
 
 DO $report$
 DECLARE
@@ -767,8 +801,8 @@ BEGIN
   RAISE NOTICE 'SECURITY GATE SUMMARY: % PASS, % FAIL, % TOTAL',
     v_passed, v_failed, v_passed + v_failed;
 
-  IF (SELECT count(*) FROM security_gate_results) <> 64 THEN
-    RAISE EXCEPTION 'security gate incomplete: expected 64 results, got %',
+  IF (SELECT count(*) FROM security_gate_results) <> 65 THEN
+    RAISE EXCEPTION 'security gate incomplete: expected 65 results, got %',
       (SELECT count(*) FROM security_gate_results);
   END IF;
 

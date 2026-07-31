@@ -227,6 +227,26 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'restaurant/menu RLS was disabled';
   END IF;
+
+  IF has_function_privilege(
+    'authenticated', 'public.update_updated_at_column()', 'EXECUTE'
+  ) OR has_function_privilege(
+    'authenticated', 'public.update_food_ordering_updated_at()', 'EXECUTE'
+  ) OR EXISTS (
+    SELECT 1
+    FROM pg_default_acl AS d
+    CROSS JOIN LATERAL aclexplode(d.defaclacl) AS privilege
+    WHERE d.defaclrole = 'postgres'::regrole
+      AND d.defaclnamespace = 'public'::regnamespace
+      AND d.defaclobjtype = 'f'
+      AND privilege.privilege_type = 'EXECUTE'
+      AND (
+        privilege.grantee = 0
+        OR pg_get_userbyid(privilege.grantee) IN ('anon', 'authenticated')
+      )
+  ) THEN
+    RAISE EXCEPTION 'client function execution defaults remain open';
+  END IF;
 END;
 $assertions$;
 

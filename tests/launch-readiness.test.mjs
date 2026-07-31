@@ -179,7 +179,11 @@ test('operational order RPCs match client calls and enforce scoped transitions',
 
   assert.match(
     anonMigration,
-    /REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon/
+    /REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public\s+FROM PUBLIC, anon, authenticated/
+  );
+  assert.match(
+    anonMigration,
+    /ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public\s+REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated/
   );
   assert.match(
     anonMigration,
