@@ -12,6 +12,7 @@
     "test:payments": "node --test tests/razorpay-hardening.test.mjs",
     "test:refunds": "node --test tests/refund-http-replay.test.mjs",
     "test:menus": "node --test tests/menu-import.test.mjs",
+    "test:auth": "node --test tests/auth-password-recovery.test.mjs",
     "reconcile:razorpay": "node scripts/reconcile-razorpay.mjs"
   },
   "dependencies": {

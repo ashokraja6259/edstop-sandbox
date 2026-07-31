@@ -11,6 +11,7 @@ import {
   useCallback,
 } from 'react';
 import { createClient } from '@/lib/supabaseClient';
+import { getPasswordRecoveryRedirect } from '@/lib/auth/password-recovery.mjs';
 import type {
   AuthResponse,
   AuthTokenResponsePassword,
@@ -267,8 +268,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const resetPassword = useCallback(
     async (email: string) => {
+      const redirectTo = getPasswordRecoveryRedirect(
+        process.env.NEXT_PUBLIC_SITE_URL,
+        window.location.origin
+      );
+
       const response = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+        redirectTo,
       });
 
       if (response.error) {

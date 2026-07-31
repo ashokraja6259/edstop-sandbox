@@ -5,6 +5,10 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  isValidEmailAddress,
+  normalizeEmailAddress,
+} from '@/lib/auth/password-recovery.mjs';
 
 const inputClassName =
   'w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none transition focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/30 disabled:cursor-not-allowed disabled:opacity-60';
@@ -125,10 +129,15 @@ export default function LoginPage() {
     setError('');
     setSuccess('');
 
-    const normalizedEmail = forgotEmail.trim().toLowerCase();
+    const normalizedEmail = normalizeEmailAddress(forgotEmail);
 
     if (!normalizedEmail) {
       setError('Enter your email to reset password.');
+      return;
+    }
+
+    if (!isValidEmailAddress(normalizedEmail)) {
+      setError('Enter a valid email address.');
       return;
     }
 
