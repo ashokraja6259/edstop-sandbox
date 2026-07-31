@@ -31,6 +31,11 @@ interface MenuItem {
   category: string;
   is_veg: boolean;
   stock_level: number;
+  dietary_type: string | null;
+  spice_level: string | null;
+  badge: string | null;
+  category_sort_order: number | null;
+  item_sort_order: number | null;
 }
 
 interface Restaurant {
@@ -40,6 +45,7 @@ interface Restaurant {
   rating: number | null;
   delivery_time: string;
   minimum_order: number;
+  display_order: number | null;
 }
 
 type DiscoveryFilter = 'all' | 'top-rated' | 'fast-delivery' | 'low-minimum';
@@ -97,8 +103,9 @@ const FoodOrderingInteractive = () => {
 
       const { data, error } = await supabase
         .from('restaurants')
-        .select('id,name,image_url,rating,delivery_time,minimum_order')
+        .select('id,name,image_url,rating,delivery_time,minimum_order,display_order')
         .eq('is_available', true)
+        .order('display_order', { ascending: true, nullsFirst: false })
         .order('name');
 
       if (error) {
@@ -138,12 +145,19 @@ const FoodOrderingInteractive = () => {
           image_url,
           category,
           is_veg,
-          stock_level
+          stock_level,
+          dietary_type,
+          spice_level,
+          badge,
+          category_sort_order,
+          item_sort_order
         `)
         .eq('restaurant_id', selectedRestaurant)
         .eq('is_available', true)
         .gt('stock_level', 0)
-        .order('category');
+        .order('category_sort_order', { ascending: true, nullsFirst: false })
+        .order('item_sort_order', { ascending: true, nullsFirst: false })
+        .order('name');
 
       if (error) {
         console.error(error);
@@ -202,6 +216,17 @@ const FoodOrderingInteractive = () => {
       return true;
     });
   }, [restaurants, restaurantSearch, activeDiscoveryFilter]);
+
+  const menuCategories = useMemo(() => {
+    const categories = new Map<string, MenuItem[]>();
+
+    for (const item of menuItems) {
+      const category = item.category || 'Menu';
+      categories.set(category, [...(categories.get(category) ?? []), item]);
+    }
+
+    return [...categories.entries()];
+  }, [menuItems]);
 
   /* ================= ADD TO CART ================= */
 
@@ -428,26 +453,35 @@ const FoodOrderingInteractive = () => {
                 </p>
               )}
 
-              {menuItems.map(item => (
+              {menuCategories.map(([category, items]) => (
+                <section key={category} className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground">
+                    {category}
+                  </h2>
 
-                <MenuItemCard
-                  key={item.id}
-                  item={{
-                    id: item.id,
-                    name: item.name,
-                    description: item.description,
-                    price: item.price,
-                    image: item.image_url || '',
-                    alt: item.name,
-                    isVeg: item.is_veg,
-                    customizable: false
-                  }}
-                  onAddToCart={handleAddToCart}
-                  cartQuantity={
-                    cart.find(c => c.id === item.id)?.quantity || 0
-                  }
-                />
-
+                  {items.map(item => (
+                    <MenuItemCard
+                      key={item.id}
+                      item={{
+                        id: item.id,
+                        name: item.name,
+                        description: item.description,
+                        price: item.price,
+                        image: item.image_url || '',
+                        alt: item.name,
+                        isVeg: item.is_veg,
+                        dietaryType: item.dietary_type,
+                        spiceLevel: item.spice_level,
+                        badge: item.badge,
+                        customizable: false
+                      }}
+                      onAddToCart={handleAddToCart}
+                      cartQuantity={
+                        cart.find(c => c.id === item.id)?.quantity || 0
+                      }
+                    />
+                  ))}
+                </section>
               ))}
 
             </div>
