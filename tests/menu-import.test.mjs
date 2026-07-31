@@ -104,3 +104,67 @@ test('food ordering reads and displays ordered menu metadata', async () => {
   assert.match(card, /spiceLevel/);
   assert.match(card, /item\.badge/);
 });
+
+test('soft visibility keeps reviewed outlets closed and checkout disabled', async () => {
+  const [migration, interactive, restaurantCard, menuCard, cart] =
+    await Promise.all([
+      read(
+        'supabase/migrations/20260731000800_enable_soft_visibility_food_menus.sql'
+      ),
+      read(
+        'src/app/food-ordering-interface/components/FoodOrderingInteractive.tsx'
+      ),
+      read(
+        'src/app/food-ordering-interface/components/RestaurantCard.tsx'
+      ),
+      read('src/app/food-ordering-interface/components/MenuItemCard.tsx'),
+      read('src/app/food-ordering-interface/components/CartSummary.tsx'),
+    ]);
+
+  assert.match(migration, /v_restaurant_count <> 4/);
+  assert.match(migration, /v_menu_count <> 884/);
+  assert.match(migration, /is_active = true/);
+  assert.match(migration, /is_available = false/);
+  assert.match(migration, /is_open = false/);
+  assert.doesNotMatch(
+    migration,
+    /UPDATE\s+public\.(?:orders|wallets|wallet_transactions|payment_intents)/i
+  );
+  assert.doesNotMatch(migration, /CREATE\s+POLICY|ALTER\s+POLICY|DROP\s+POLICY/i);
+
+  assert.match(interactive, /\.eq\('is_active', true\)/);
+  assert.match(interactive, /selectedRestaurantOrderable/);
+  assert.match(
+    interactive,
+    /Menu browsing is available, but\s+ordering is disabled/
+  );
+  assert.match(interactive, /aria-label="Menu categories"/);
+  assert.match(interactive, /scrollIntoView\(\{ behavior: 'smooth'/);
+  assert.match(restaurantCard, /isBrowsable/);
+  assert.match(menuCard, /isOrderable/);
+  assert.match(menuCard, /Opening Soon/);
+  assert.match(cart, /checkoutDisabled/);
+  assert.match(cart, /Restaurant Closed/);
+});
+
+test('vendor views support multiple owner-scoped outlets and ordered categories', async () => {
+  const [dashboard, menu, orders] = await Promise.all([
+    read('src/app/vendor/dashboard/page.tsx'),
+    read('src/app/vendor/menu/page.tsx'),
+    read('src/app/vendor/orders/page.tsx'),
+  ]);
+
+  for (const source of [dashboard, menu, orders]) {
+    assert.match(source, /\.eq\('owner_id', user\.id\)/);
+    assert.match(source, /restaurants\.length > 1|allRestaurantRows\.length > 1/);
+    assert.match(source, /Switch Outlet/);
+  }
+
+  assert.match(orders, /\.eq\('restaurant_id', restaurant\.id\)/);
+  assert.match(menu, /\.eq\('restaurant_id', restaurant\.id\)/);
+  assert.match(menu, /categoryGroups/);
+  assert.match(menu, /category_sort_order/);
+  assert.match(menu, /item_sort_order/);
+  assert.match(dashboard, /categoryCounts/);
+  assert.match(dashboard, /Menu Categories/);
+});

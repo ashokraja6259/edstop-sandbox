@@ -167,7 +167,8 @@ export default async function VendorDashboardPage({
     );
   }
 
-  const [{ data: orders }, { data: menuItems }] = await Promise.all([
+  const [{ data: orders }, { data: menuItems }, { data: categoryItems }] =
+    await Promise.all([
     supabase
       .from('orders')
       .select(
@@ -179,15 +180,46 @@ export default async function VendorDashboardPage({
 
     supabase
       .from('menu_items')
-      .select('id, restaurant_id, name, price, category, is_available, stock_level')
+      .select(
+        'id, restaurant_id, name, price, category, category_sort_order, item_sort_order, is_available, stock_level'
+      )
       .eq('restaurant_id', restaurant.id)
+      .order('category_sort_order', { ascending: true, nullsFirst: false })
+      .order('item_sort_order', { ascending: true, nullsFirst: false })
       .order('name', { ascending: true })
       .limit(50),
-  ]);
+
+    supabase
+      .from('menu_items')
+      .select('category, category_sort_order')
+      .eq('restaurant_id', restaurant.id)
+      .order('category_sort_order', { ascending: true, nullsFirst: false })
+      .order('category', { ascending: true }),
+    ]);
 
   const orderRows = orders ?? [];
   const menuRows = menuItems ?? [];
   const allRestaurantRows = restaurantRows ?? [];
+  const categoryCounts = new Map<string, { count: number; sortOrder: number }>();
+
+  for (const item of categoryItems ?? []) {
+    const category = String(item.category || '').trim();
+    if (!category) continue;
+
+    const existing = categoryCounts.get(category);
+    categoryCounts.set(category, {
+      count: (existing?.count ?? 0) + 1,
+      sortOrder: Math.min(
+        existing?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+        item.category_sort_order ?? Number.MAX_SAFE_INTEGER
+      ),
+    });
+  }
+
+  const categories = [...categoryCounts.entries()].sort(
+    ([nameA, a], [nameB, b]) =>
+      a.sortOrder - b.sortOrder || nameA.localeCompare(nameB)
+  );
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -221,7 +253,7 @@ export default async function VendorDashboardPage({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {role === 'admin' && (
+            {allRestaurantRows.length > 1 && (
               <form>
                 <select
                   name="restaurantId"
@@ -239,7 +271,7 @@ export default async function VendorDashboardPage({
                   type="submit"
                   className="ml-2 rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
                 >
-                  View Outlet
+                  Switch Outlet
                 </button>
               </form>
             )}
@@ -273,6 +305,20 @@ export default async function VendorDashboardPage({
           <Stat title="Today Revenue" value={`₹${todayRevenue.toFixed(2)}`} />
           <Stat title="Active Orders" value={String(activeOrders.length)} />
         </section>
+
+        <Panel title="Menu Categories">
+          <div className="flex flex-wrap gap-2">
+            {categories.map(([category, summary]) => (
+              <span
+                key={category}
+                className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-sm text-white/70"
+              >
+                {category} · {summary.count}
+              </span>
+            ))}
+            {categories.length === 0 && <Empty text="No categories found." />}
+          </div>
+        </Panel>
 
         <section className="grid gap-6 lg:grid-cols-2">
           <Panel title="Recent Orders">

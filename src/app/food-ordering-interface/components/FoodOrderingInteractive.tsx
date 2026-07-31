@@ -46,9 +46,19 @@ interface Restaurant {
   delivery_time: string;
   minimum_order: number;
   display_order: number | null;
+  cuisines: string[] | null;
+  is_active: boolean;
+  is_available: boolean;
+  is_open: boolean;
 }
 
 type DiscoveryFilter = 'all' | 'top-rated' | 'fast-delivery' | 'low-minimum';
+
+const categoryAnchorId = (category: string) =>
+  `menu-category-${category
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')}`;
 
 interface CartItem {
   id: string;
@@ -103,8 +113,10 @@ const FoodOrderingInteractive = () => {
 
       const { data, error } = await supabase
         .from('restaurants')
-        .select('id,name,image_url,rating,delivery_time,minimum_order,display_order')
-        .eq('is_available', true)
+        .select(
+          'id,name,image_url,rating,delivery_time,minimum_order,display_order,cuisines,is_active,is_available,is_open'
+        )
+        .eq('is_active', true)
         .order('display_order', { ascending: true, nullsFirst: false })
         .order('name');
 
@@ -130,11 +142,16 @@ const FoodOrderingInteractive = () => {
 
     if (!selectedRestaurant) return;
 
+    const selected = restaurants.find(
+      (restaurant) => restaurant.id === selectedRestaurant
+    );
+    const isOrderable = Boolean(selected?.is_available && selected?.is_open);
+
     const loadMenu = async () => {
 
       setLoadingMenu(true);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('menu_items')
         .select(`
           id,
@@ -153,11 +170,15 @@ const FoodOrderingInteractive = () => {
           item_sort_order
         `)
         .eq('restaurant_id', selectedRestaurant)
-        .eq('is_available', true)
-        .gt('stock_level', 0)
         .order('category_sort_order', { ascending: true, nullsFirst: false })
         .order('item_sort_order', { ascending: true, nullsFirst: false })
         .order('name');
+
+      if (isOrderable) {
+        query = query.eq('is_available', true).gt('stock_level', 0);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error(error);
@@ -173,7 +194,7 @@ const FoodOrderingInteractive = () => {
 
     loadMenu();
 
-  }, [selectedRestaurant, supabase, toast]);
+  }, [restaurants, selectedRestaurant, supabase, toast]);
 
   /* ================= CART ================= */
 
@@ -184,6 +205,12 @@ const FoodOrderingInteractive = () => {
 
   const selectedRestaurantData = restaurants.find(
     r => r.id === selectedRestaurant
+  );
+
+  const selectedRestaurantOrderable = Boolean(
+    selectedRestaurantData?.is_active &&
+      selectedRestaurantData.is_available &&
+      selectedRestaurantData.is_open
   );
 
   const minimumOrder = selectedRestaurantData?.minimum_order ?? 0;
@@ -231,6 +258,11 @@ const FoodOrderingInteractive = () => {
   /* ================= ADD TO CART ================= */
 
   const handleAddToCart = (itemId: string, quantity: number) => {
+
+    if (!selectedRestaurantOrderable) {
+      toast.error('This restaurant is currently closed.');
+      return;
+    }
 
     const item = menuItems.find(i => i.id === itemId);
     if (!item) return;
@@ -351,7 +383,9 @@ const FoodOrderingInteractive = () => {
               <h1 className="text-3xl font-bold">Order Food</h1>
               <p className="mt-2 text-sm text-muted-foreground">Choose from campus restaurants and place your next meal in minutes.</p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                <span className="rounded-full border border-border px-3 py-1">{restaurants.length} restaurants open</span>
+                <span className="rounded-full border border-border px-3 py-1">
+                  {restaurants.length} restaurants
+                </span>
                 <span className="rounded-full border border-border px-3 py-1">Free delivery on select outlets</span>
               </div>
             </section>
@@ -409,11 +443,13 @@ const FoodOrderingInteractive = () => {
                 id={r.id}
                 name={r.name}
                 image={r.image_url || ''}
-                cuisines={[]}
+                cuisines={r.cuisines ?? []}
                 rating={r.rating || 0}
                 deliveryTime={r.delivery_time}
                 minimumOrder={r.minimum_order}
                 isSelected={false}
+                isAvailable={r.is_available && r.is_open}
+                isBrowsable
                 onClick={() => handleRestaurantSelect(r.id)}
               />
 
@@ -447,14 +483,47 @@ const FoodOrderingInteractive = () => {
                 </div>
               </div>
 
+              {!selectedRestaurantOrderable && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
+                  <strong>CLOSED</strong> · Menu browsing is available, but
+                  ordering is disabled.
+                </div>
+              )}
+
               {loadingMenu && (
                 <p className="text-sm text-muted-foreground">
                   Loading menu...
                 </p>
               )}
 
+              {menuCategories.length > 0 && (
+                <nav
+                  aria-label="Menu categories"
+                  className="sticky top-20 z-20 flex gap-2 overflow-x-auto rounded-xl border border-border bg-background/95 p-3 shadow-sm backdrop-blur"
+                >
+                  {menuCategories.map(([category]) => (
+                    <button
+                      key={category}
+                      type="button"
+                      onClick={() =>
+                        document
+                          .getElementById(categoryAnchorId(category))
+                          ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }
+                      className="whitespace-nowrap rounded-full border border-border px-3 py-1.5 text-sm hover:bg-muted"
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </nav>
+              )}
+
               {menuCategories.map(([category, items]) => (
-                <section key={category} className="space-y-3">
+                <section
+                  key={category}
+                  id={categoryAnchorId(category)}
+                  className="scroll-mt-40 space-y-3"
+                >
                   <h2 className="text-lg font-semibold text-foreground">
                     {category}
                   </h2>
@@ -479,6 +548,7 @@ const FoodOrderingInteractive = () => {
                       cartQuantity={
                         cart.find(c => c.id === item.id)?.quantity || 0
                       }
+                      isOrderable={selectedRestaurantOrderable}
                     />
                   ))}
                 </section>
@@ -502,6 +572,8 @@ const FoodOrderingInteractive = () => {
                 onCheckout={() => setIsCheckoutOpen(true)}
                 minimumOrderMet={minimumOrderMet}
                 minimumOrder={minimumOrder}
+                checkoutDisabled={!selectedRestaurantOrderable}
+                checkoutDisabledMessage="This restaurant is closed. Ordering is unavailable."
               />
 
               {showTracker && delivery && (

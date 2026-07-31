@@ -29,9 +29,15 @@ interface MenuItemCardProps {
   item: MenuItem;
   onAddToCart: (itemId: string, quantity: number, variantId?: string) => void;
   cartQuantity: number;
+  isOrderable?: boolean;
 }
 
-const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) => {
+const MenuItemCard = ({
+  item,
+  onAddToCart,
+  cartQuantity,
+  isOrderable = true,
+}: MenuItemCardProps) => {
 
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>(
     item.variants?.[0]?.id
@@ -224,7 +230,13 @@ const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) =>
 
           {/* ADD BUTTON */}
 
-          {cartQuantity === 0 ? (
+          {!isOrderable ? (
+
+            <span className="rounded-xl border border-border bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground">
+              Opening Soon
+            </span>
+
+          ) : cartQuantity === 0 ? (
 
             <button
               onClick={handleAdd}

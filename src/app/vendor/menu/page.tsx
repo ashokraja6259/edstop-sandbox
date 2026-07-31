@@ -7,6 +7,12 @@ import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
+const categoryAnchorId = (category: string) =>
+  `category-${category
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')}`;
+
 async function createMenuItem(formData: FormData) {
   'use server';
 
@@ -172,13 +178,21 @@ export default async function VendorMenuPage({
   const { data: menuItems } = await supabase
     .from('menu_items')
     .select(
-      'id, restaurant_id, name, description, price, category, is_veg, is_available, stock_level, created_at'
+      'id, restaurant_id, name, description, price, category, category_sort_order, item_sort_order, is_veg, is_available, stock_level, created_at'
     )
     .eq('restaurant_id', restaurant.id)
-    .order('category', { ascending: true })
+    .order('category_sort_order', { ascending: true, nullsFirst: false })
+    .order('item_sort_order', { ascending: true, nullsFirst: false })
     .order('name', { ascending: true });
 
   const menuRows = menuItems ?? [];
+  const categoryGroups = new Map<string, typeof menuRows>();
+
+  for (const item of menuRows) {
+    const category = String(item.category || '').trim();
+    if (!category) continue;
+    categoryGroups.set(category, [...(categoryGroups.get(category) ?? []), item]);
+  }
 
   return (
     <main className="min-h-screen bg-background text-white px-4 py-6">
@@ -195,7 +209,7 @@ export default async function VendorMenuPage({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {role === 'admin' && (
+            {restaurants.length > 1 && (
               <form>
                 <select
                   name="restaurantId"
@@ -213,7 +227,7 @@ export default async function VendorMenuPage({
                   type="submit"
                   className="ml-2 rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
                 >
-                  View Outlet
+                  Switch Outlet
                 </button>
               </form>
             )}
@@ -288,71 +302,101 @@ export default async function VendorMenuPage({
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="mb-6">
+            <h2 className="mb-3 text-xl font-bold">Categories</h2>
+            <div className="flex flex-wrap gap-2">
+              {[...categoryGroups.entries()].map(([category, items]) => (
+                <a
+                  key={category}
+                  href={`#${categoryAnchorId(category)}`}
+                  className="rounded-full border border-white/10 bg-black/20 px-3 py-2 text-sm text-white/70 hover:bg-white/10"
+                >
+                  {category} · {items.length}
+                </a>
+              ))}
+            </div>
+          </div>
+
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold">Menu Items</h2>
             <p className="text-sm text-white/50">{menuRows.length} items</p>
           </div>
 
-          <div className="space-y-3">
-            {menuRows.map((item) => (
-              <form
-                key={item.id}
-                action={updateMenuItem}
-                className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 md:grid-cols-8"
+          <div className="space-y-8">
+            {[...categoryGroups.entries()].map(([category, items]) => (
+              <section
+                key={category}
+                id={categoryAnchorId(category)}
+                className="scroll-mt-6 space-y-3"
               >
-                <input type="hidden" name="item_id" value={item.id} />
-                <input
-                  type="hidden"
-                  name="restaurant_id"
-                  value={restaurant.id}
-                />
-
-                <input
-                  name="name"
-                  defaultValue={item.name}
-                  className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white md:col-span-2"
-                />
-
-                <input
-                  name="category"
-                  defaultValue={item.category || 'Main Course'}
-                  className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white"
-                />
-
-                <input
-                  name="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  defaultValue={Number(item.price || 0)}
-                  className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white"
-                />
-
-                <input
-                  name="stock_level"
-                  type="number"
-                  min="0"
-                  defaultValue={item.stock_level ?? 0}
-                  className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white"
-                />
-
-                <select
-                  name="is_available"
-                  defaultValue={item.is_available ? 'true' : 'false'}
-                  className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white"
-                >
-                  <option value="true">Available</option>
-                  <option value="false">Disabled</option>
-                </select>
-
-                <div className="flex items-center text-xs text-white/50">
-                  {item.is_veg ? 'Veg' : 'Non-Veg'}
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <h3 className="text-lg font-semibold">{category}</h3>
+                  <span className="text-sm text-white/50">
+                    {items.length} items
+                  </span>
                 </div>
 
-                <button className="rounded-xl border border-white/10 px-3 py-2 text-sm hover:bg-white/10">
-                  Save
-                </button>
-              </form>
+                {items.map((item) => (
+                  <form
+                    key={item.id}
+                    action={updateMenuItem}
+                    className="grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 md:grid-cols-8"
+                  >
+                    <input type="hidden" name="item_id" value={item.id} />
+                    <input
+                      type="hidden"
+                      name="restaurant_id"
+                      value={restaurant.id}
+                    />
+
+                    <input
+                      name="name"
+                      defaultValue={item.name}
+                      className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white md:col-span-2"
+                    />
+
+                    <input
+                      name="category"
+                      defaultValue={item.category || 'Main Course'}
+                      className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white"
+                    />
+
+                    <input
+                      name="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      defaultValue={Number(item.price || 0)}
+                      className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white"
+                    />
+
+                    <input
+                      name="stock_level"
+                      type="number"
+                      min="0"
+                      defaultValue={item.stock_level ?? 0}
+                      className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white"
+                    />
+
+                    <select
+                      name="is_available"
+                      defaultValue={item.is_available ? 'true' : 'false'}
+                      className="rounded-xl border border-white/10 bg-black px-3 py-2 text-sm text-white"
+                    >
+                      <option value="true">Available</option>
+                      <option value="false">Disabled</option>
+                    </select>
+
+                    <div className="flex items-center text-xs text-white/50">
+                      {item.is_veg ? 'Veg' : 'Non-Veg'}
+                    </div>
+
+                    <button className="rounded-xl border border-white/10 px-3 py-2 text-sm hover:bg-white/10">
+                      Save
+                    </button>
+                  </form>
+                ))}
+              </section>
             ))}
 
             {menuRows.length === 0 && (

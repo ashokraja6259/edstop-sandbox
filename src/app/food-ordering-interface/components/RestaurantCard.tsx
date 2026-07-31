@@ -16,6 +16,7 @@ interface RestaurantCardProps {
   minimumOrder?: number;
   isSelected: boolean;
   isAvailable?: boolean;
+  isBrowsable?: boolean;
   onClick: () => void;
 }
 
@@ -29,13 +30,14 @@ const RestaurantCard = ({
   minimumOrder = 0,
   isSelected,
   isAvailable = true,
+  isBrowsable = true,
   onClick,
 }: RestaurantCardProps) => {
 
   const safeRating = Number(rating) || 0;
 
   const handleClick = () => {
-    if (!isAvailable) return;
+    if (!isBrowsable) return;
     onClick();
   };
 
@@ -52,7 +54,7 @@ const RestaurantCard = ({
         transition-all duration-300 press-scale btn-glow
         ${isSelected 
           ? 'gradient-border shadow-lg shadow-purple-500/30 bg-gradient-to-br from-purple-900/40 to-indigo-900/40' 
-          : isAvailable
+          : isBrowsable
           ? 'glass-neon hover-glow-purple cursor-pointer'
           : 'glass-neon opacity-60 cursor-not-allowed'
         }
@@ -117,7 +119,7 @@ const RestaurantCard = ({
 
             {!isAvailable && (
               <span className="px-1.5 py-0.5 bg-destructive/15 text-destructive font-caption text-xs rounded flex-shrink-0">
-                Unavailable
+                Closed
               </span>
             )}
 
