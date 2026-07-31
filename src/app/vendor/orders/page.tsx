@@ -184,7 +184,7 @@ export default async function VendorOrdersPage({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {role === 'admin' && (
+            {restaurants.length > 1 && (
               <form>
                 <select
                   name="restaurantId"
@@ -202,7 +202,7 @@ export default async function VendorOrdersPage({
                   type="submit"
                   className="ml-2 rounded-xl border border-white/10 px-4 py-2 text-sm hover:bg-white/10"
                 >
-                  View Outlet
+                  Switch Outlet
                 </button>
               </form>
             )}

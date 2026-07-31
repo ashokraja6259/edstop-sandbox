@@ -18,6 +18,9 @@ interface MenuItem {
   image: string;
   alt: string;
   isVeg: boolean;
+  dietaryType?: string | null;
+  spiceLevel?: string | null;
+  badge?: string | null;
   variants?: Variant[];
   customizable: boolean;
 }
@@ -26,9 +29,15 @@ interface MenuItemCardProps {
   item: MenuItem;
   onAddToCart: (itemId: string, quantity: number, variantId?: string) => void;
   cartQuantity: number;
+  isOrderable?: boolean;
 }
 
-const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) => {
+const MenuItemCard = ({
+  item,
+  onAddToCart,
+  cartQuantity,
+  isOrderable = true,
+}: MenuItemCardProps) => {
 
   const [selectedVariant, setSelectedVariant] = useState<string | undefined>(
     item.variants?.[0]?.id
@@ -83,6 +92,8 @@ const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) =>
   };
 
   const price = getItemPrice();
+  const dietaryType = item.dietaryType || (item.isVeg ? 'Veg' : 'Non-Veg');
+  const isVegetarian = dietaryType === 'Veg';
 
   /* ================= UI ================= */
 
@@ -99,14 +110,14 @@ const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) =>
 
             <div
               className={`flex items-center justify-center w-5 h-5 border-2 rounded-sm flex-shrink-0 mt-0.5 ${
-                item.isVeg
+                isVegetarian
                   ? 'border-success bg-success/10'
                   : 'border-destructive bg-destructive/10'
               }`}
             >
               <div
                 className={`w-2 h-2 rounded-full ${
-                  item.isVeg ? 'bg-success' : 'bg-destructive'
+                  isVegetarian ? 'bg-success' : 'bg-destructive'
                 }`}
               />
             </div>
@@ -120,6 +131,12 @@ const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) =>
           <p className="font-body text-sm text-text-secondary mb-3 line-clamp-2">
             {item.description}
           </p>
+
+          <div className="mb-3 flex flex-wrap gap-2 text-xs text-text-secondary">
+            <span>{dietaryType}</span>
+            {item.spiceLevel && <span>• {item.spiceLevel}</span>}
+            {item.badge && <span>• {item.badge}</span>}
+          </div>
 
           {/* PRICE */}
 
@@ -213,7 +230,13 @@ const MenuItemCard = ({ item, onAddToCart, cartQuantity }: MenuItemCardProps) =>
 
           {/* ADD BUTTON */}
 
-          {cartQuantity === 0 ? (
+          {!isOrderable ? (
+
+            <span className="rounded-xl border border-border bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground">
+              Opening Soon
+            </span>
+
+          ) : cartQuantity === 0 ? (
 
             <button
               onClick={handleAdd}

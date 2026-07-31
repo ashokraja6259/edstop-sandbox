@@ -23,6 +23,8 @@ interface CartSummaryProps {
   onCheckout: () => void;
   minimumOrderMet: boolean;
   minimumOrder: number;
+  checkoutDisabled?: boolean;
+  checkoutDisabledMessage?: string;
 }
 
 const MAX_QUANTITY = 10;
@@ -39,6 +41,8 @@ const CartSummary = ({
   onCheckout,
   minimumOrderMet,
   minimumOrder,
+  checkoutDisabled = false,
+  checkoutDisabledMessage = 'Ordering is currently unavailable.',
 }: CartSummaryProps) => {
 
   const [quantityErrors, setQuantityErrors] = useState<Record<string, string>>({});
@@ -94,6 +98,11 @@ const CartSummary = ({
   };
 
   const handleCheckout = () => {
+
+    if (checkoutDisabled) {
+      setCheckoutError(checkoutDisabledMessage);
+      return;
+    }
 
     if (!minimumOrderMet) {
 
@@ -296,9 +305,10 @@ const CartSummary = ({
 
         <button
           onClick={handleCheckout}
-          className="w-full mt-3 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold hover:opacity-90"
+          disabled={checkoutDisabled}
+          className="w-full mt-3 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Proceed to Checkout
+          {checkoutDisabled ? 'Restaurant Closed' : 'Proceed to Checkout'}
         </button>
 
       </div>
